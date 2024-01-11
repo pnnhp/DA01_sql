@@ -1,1 +1,66 @@
+--EX1--
+SELECT DISTINCT CITY FROM STATION
+WHERE MOD(ID,2)=0
 
+--EX2--
+SELECT COUNT(CITY)-COUNT(DISTINCT CITY) FROM STATION
+
+--EX3--
+
+--EX4--
+SELECT 
+  ROUND(CAST(SUM(item_count*order_occurrences)/SUM(order_occurrences) as decimal),1) AS mean
+FROM items_per_order;
+
+--EX5--
+SELECT candidate_id FROM CANDIDATES
+WHERE SKILL IN ('Python', 'Tableau', 'PostgreSQL')
+GROUP BY candidate_id HAVING COUNT (DISTINCT SKILL)=3
+ORDER BY candidate_id ASC
+
+--EX6--
+SELECT user_id,
+ DATE(MAX(post_date))-DATE(MIN(post_date)) AS days_between
+ FROM posts
+ WHERE 	post_date >='2021-01-01' AND post_date< '2022-01-01'
+ GROUP BY user_id
+ HAVING COUNT(post_id)>=2
+
+--EX7--
+SELECT card_name,
+MAX(issued_amount)-MIN(issued_amount) AS difference
+FROM monthly_cards_issued
+GROUP BY card_name
+ORDER BY difference DESC
+
+--EX8--
+SELECT manufacturer,
+COUNT (DISTINCT product_id) AS drug_count,
+SUM(cogs-total_sales) AS total_loss
+FROM pharmacy_sales
+WHERE cogs>total_sales
+GROUP BY manufactureR
+ORDER BY total_loss DESC
+
+--EX9--
+SELECT * FROM Cinema
+WHERE MOD(id,2)!=0 AND description != 'boring'
+ORDER BY rating DESC
+
+--EX10--
+SELECT  teacher_id,
+COUNT(DISTINCT subject_id) AS cnt
+FROM TEACHER
+GROUP BY teacher_id
+
+--EX11--
+SELECT user_id,
+COUNT(follower_id) AS followers_count
+FROM Followers
+GROUP BY user_id
+ORDER BY user_id ASC
+
+--EX12--
+SELECT class
+FROM Courses 
+GROUP BY class HAVING COUNT(DISTINCT student)>=5 
