@@ -1,0 +1,32 @@
+--ex1--
+SELECT 
+  SUM(CASE WHEN device_type = 'laptop' THEN 1 ELSE 0 END) AS laptop_views, 
+  SUM(CASE WHEN device_type IN ('tablet', 'phone') THEN 1 ELSE 0 END) AS mobile_views 
+FROM viewership;
+
+--ex2--
+select x, y, z, 
+case when x+y>z and y+z>x and x+z>y then 'Yes' else 'No' END 
+as triangle
+from Triangle
+
+--ex3--
+SELECT COUNT(case_id) AS uncategorised_calls
+FROM callers
+WHERE call_category IS NULL
+  OR call_category = 'n/a';
+
+--ex4--
+SELECT name
+FROM Customer
+WHERE COALESCE(referee_id,0) <> 2;
+
+--ex5--
+SELECT
+    survived,
+    sum(CASE WHEN pclass = 1 THEN 1 ELSE 0 END) AS first_class,
+    sum(CASE WHEN pclass = 2 THEN 1 ELSE 0 END) AS second_class,
+    sum(CASE WHEN pclass = 3 THEN 1 ELSE 0 END) AS third_class
+FROM titanic
+GROUP BY 
+    survived
