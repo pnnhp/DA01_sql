@@ -17,4 +17,53 @@ END) as so_luong
 FROM FILM
 group by category
 
+--Q3--
+select a.title, a.length, b.category_id, c.name 
+from public.film as a
+inner join public.film_category as b
+on a.film_id=b.film_id
+inner join public.category as c on b.category_id=c.category_id
+where c.name in ('Sports', 'Drama') 
+order by a.length desc
 
+--Q4--
+SELECT  c.name,
+count (c.name) as so_luong
+FROM public.film as a
+inner join public.film_category as b
+on a.film_id=b.film_id
+inner join public.category as c 
+on b.category_id=c.category_id
+group by c.name
+order by count (c.name) desc
+
+--Q5--
+select a.first_name, a.last_name,
+count (a.first_name), count (a.last_name)
+from public.actor as a
+inner join public.film_actor as b
+on a.actor_id=b.actor_id
+inner join public.film as c
+on b.film_id=c.film_id
+group by a.first_name, a.last_name
+order by count (a.first_name)desc, count (a.last_name) desc
+
+--Q6--
+select a.address, a.address2
+from public.address as a
+left join public.customer as b
+on a.address_id=b.address_id
+where a.address2 is null
+
+--Q7--
+select a.city,
+sum (d.amount) as tong
+from city as a
+inner join public.address as b
+on a.city_id=b.city_id
+inner join public.customer as c
+on b.address_id=c.address_id
+inner join public.payment as d
+on c.customer_id=d.customer_id
+group by a.city
+order by sum (d.amount) desc
