@@ -97,3 +97,40 @@ ROUND(SUM(CASE WHEN b.signup_action = 'Confirmed' THEN 1 ELSE 0 END)*1.0 / COUNT
 FROM emails AS a 
 LEFT JOIN texts as b  
 ON a.email_id  = b.email_id
+
+--EX3--
+with time_spent AS
+(select a.age_bucket,
+sum (case 
+  when b.activity_type ='open' then b.time_spent 
+  end) as time_open,
+sum (case 
+  when b.activity_type ='send' then b.time_spent 
+  end) as time_send
+from age_breakdown as a
+inner join activities as b
+on a.user_id=b.user_id
+group by a.age_bucket)
+
+select c.age_bucket ,
+ROUND (100.0* c.time_send/(c.time_send+c.time_open),2) as send_perc,
+ROUND (100.0* c.time_open/(c.time_send+c.time_open),2) as open_perc
+from time_spent as c
+
+--EX4--
+with supercloud as
+(select a.customer_id, 
+count(distinct b.product_category)
+as unique_count
+from customer_contracts as a   
+inner join products as b
+on a.product_id=b.product_id
+group by a.customer_id)
+
+select c.customer_id 
+from supercloud as c
+where unique_count = 3
+group by c.customer_id
+
+--EX5--
+
