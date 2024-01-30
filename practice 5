@@ -1,3 +1,4 @@
+MID COURSE TEST
 --Q1--
 select  distinct replacement_cost
 from film
@@ -67,3 +68,32 @@ inner join public.payment as d
 on c.customer_id=d.customer_id
 group by a.city
 order by sum (d.amount) desc
+
+--Q8--
+select a.city, e.country,
+sum (d.amount) as tong
+from public.city as a
+inner join public.address as b
+on a.city_id=b.city_id
+inner join public.customer as c
+on b.address_id=c.address_id
+inner join public.payment as d
+on c.customer_id=d.customer_id
+inner join public.country as e
+on a.country_id=e.country_id
+group by a.city, e.country
+order by sum (d.amount) desc
+
+PRACTICE 5:
+--EX1--
+SELECT Country.Continent, FLOOR(AVG(City.Population))
+FROM Country, City 
+WHERE Country.Code = City.CountryCode 
+GROUP BY Country.Continent 
+
+--EX2--
+SELECT 
+ROUND(SUM(CASE WHEN b.signup_action = 'Confirmed' THEN 1 ELSE 0 END)*1.0 / COUNT(b.signup_action),2)
+FROM emails AS a 
+LEFT JOIN texts as b  
+ON a.email_id  = b.email_id
