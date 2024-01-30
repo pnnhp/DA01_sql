@@ -133,4 +133,35 @@ where unique_count = 3
 group by c.customer_id
 
 --EX5--
+select 
+    m.employee_id, m.name, 
+    count (e.employee_id ) as reports_count, 
+    round(avg (e.age)) as average_age     
+from Employees AS e
+inner join Employees as m
+on e.reports_to = m.employee_id 
+group by m.employee_id, m.name
+order by m.employee_id
 
+--EX6--
+select 
+    a.product_name,
+    sum (b.unit) as unit
+from Products as a
+inner join Orders as b
+on a.product_id = b.product_id
+where b.order_date between '2020-02-01' and '2020-02-29'
+group by a.product_name
+having sum (b.unit)>=100
+
+--EX7--
+SELECT a.page_id
+from pages as a
+left join page_likes as b
+on a.page_id=b.page_id
+group by a.page_id
+having count (b.page_id)=0 /* or where b.page_id is null thay cho 'having... */
+
+
+
+    
