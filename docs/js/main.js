@@ -26,11 +26,29 @@ const app = {
   async play(id, opts = {}) {
     unlock(); sfx('click');
     if (this.current) { try { this.current.stop(); } catch (e) { /* ignore */ } this.current = null; }
+    if (!opts.anyway && !opts.online && !opts.skipCard && this.gate(id, opts)) return;
     const mod = await import(`./games/${id}.js`);
     document.body.classList.add('ingame');
     this.el.innerHTML = '<div class="gameroot"></div>';
     const G = mod.default; const game = new G(this, opts);
     this.current = game; game.mount(this.el.querySelector('.gameroot')); game.start();
+  },
+  // Games only ask about lessons you've finished. If you haven't started the module yet, suggest the first lesson.
+  gate(id, opts) {
+    const g = GAMES[id]; if (!g || id === 'boss' || S().settings.lockLessons === false) return false;
+    const pool = g.mod ? lessonsForModule(g.mod) : LESSONS.filter(L => L.lo);
+    const done = pool.filter(L => store.lessonDone(L.id));
+    if (done.length) return false;
+    const first = pool[0];
+    this.screen = 'gate'; document.body.classList.remove('ingame');
+    this.el.innerHTML = `<section class="panel gate"><h2>${g.emoji} ${esc(g.title)}</h2>
+      <div class="say">This game only asks about things you've learned in your lessons. You haven't done any ${g.mod ? 'Module ' + g.mod + ' ' : ''}lessons yet, so let's start with one!</div>
+      <p>📖 <b>${esc(first.title)}</b> · ~${first.mins} min</p>
+      <div class="row"><button class="btn big" id="gl">Do the lesson first</button><button class="btn ghost" id="ga">Play anyway (all ${g.mod ? 'module' : 'course'} questions)</button><button class="btn ghost" id="gb">◀ Back</button></div></section>`;
+    this.el.querySelector('#gl').onclick = () => this.lesson(first.id);
+    this.el.querySelector('#ga').onclick = () => this.play(id, { ...opts, anyway: true });
+    this.el.querySelector('#gb').onclick = () => this.go('map');
+    return true;
   },
   lesson(id) { if (this.current) { try { this.current.stop(); } catch (e) { /* ignore */ } this.current = null; } unlock(); sfx('click'); playLesson(this, id); },
   go(screen, arg) {
@@ -173,7 +191,7 @@ function viewLearn() {
         return `<button class="lrow ${dn ? 'done' : ''} ${late ? 'late' : ''}" data-lesson="${L.id}" style="--mc:${m.color}"><span class="lck">${dn ? '✅' : late ? '⏰' : '📖'}</span><span class="lt"><b>${esc(L.title)}</b><i>${it ? 'Day ' + it.day + ' · ' + new Date(it.date).toLocaleDateString() : ''} · ~${L.mins} min</i></span><span class="lgo">▶</span></button>`; }).join('')}</div></details>`;
   }).join('');
   return `${todayClass(false)}
-  <section class="panel"><h2>📈 Course progress</h2><div class="bar me" style="height:12px"><i style="width:${Math.round(done / total * 100)}%"></i></div><p class="muted">${done} of ${total} lessons done. Each lesson is 5–14 minutes: slides, tap-to-reveal examples, 🔊 read-aloud and a 3-question check.</p></section>
+  <section class="panel"><h2>📈 Course progress</h2><div class="bar me" style="height:12px"><i style="width:${Math.round(done / total * 100)}%"></i></div><p class="muted">${done} of ${total} lessons done. Each lesson is 5–14 minutes: slides, tap-to-reveal examples, 🔊 read-aloud and a 5-question check (with fresh calculations).</p></section>
   <h3 class="sec">All lessons</h3>${course}
   <section class="panel"><h2>📅 Exam date & plan</h2><label class="row">Exam on <input type="date" id="exd" value="${s.settings.examDate}"></label>
     <p class="muted">Plan started ${new Date(s.settings.planStart).toLocaleDateString()}. Changing the exam date respreads the remaining lessons.</p>
@@ -197,6 +215,7 @@ function viewSettings() {
     <label class="row tog">Sound effects <input type="checkbox" id="snd" ${s.settings.sound ? 'checked' : ''}></label>
     <label class="row tog">Music <input type="checkbox" id="mus" ${s.settings.music ? 'checked' : ''}></label>
     <label class="row tog">Vibration (Android) <input type="checkbox" id="hap" ${s.settings.haptics ? 'checked' : ''}></label>
+    <label class="row tog">Games only ask about finished lessons <input type="checkbox" id="lockl" ${s.settings.lockLessons !== false ? 'checked' : ''}></label>
     <p class="muted small">iPhone: if there's no sound, flip off silent mode (the switch on the side).</p></section>
   <section class="panel"><h2>📲 Install on your phone / laptop</h2>
     <p><b>iPhone:</b> open this page in <b>Safari</b> → Share button → <b>Add to Home Screen</b>. It then opens full-screen and works offline.</p>
@@ -239,6 +258,7 @@ function bind(root) {
     $('snd').onchange = e => { S().settings.sound = e.target.checked; store.save(); };
     $('mus').onchange = e => { S().settings.music = e.target.checked; store.save(); refreshMusic(); if (e.target.checked) music('calm'); };
     $('hap').onchange = e => { S().settings.haptics = e.target.checked; store.save(); };
+    $('lockl').onchange = e => { S().settings.lockLessons = e.target.checked; store.save(); };
     $('exp').onclick = async () => { const c = store.exportCode(); $('code').value = c; try { await navigator.clipboard.writeText(c); $('exp').textContent = 'Copied ✔'; } catch (e) { $('code').select(); } };
     $('imp').onclick = () => { try { store.importCode($('code').value); alert('Progress imported!'); app.go('map'); } catch (e) { alert('That code did not work: ' + e.message); } };
     $('rst').onclick = () => { if (confirm('Erase ALL progress on this device?')) { store.reset(); app.go('map'); } };

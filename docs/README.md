@@ -10,7 +10,24 @@ It's an installable web app (PWA) that runs on iPhone, Android and laptops, and 
    **Laptop:** use Chrome/Edge's install icon, or just bookmark it.
 
 ## 📚 Lessons (start here!)
-53 short lessons (about 9 hours in total) cover every session in the CPA study map, explained in simple words through one running story: Lily's lemonade stand growing into a juice factory. Each lesson has swipeable slides, worked examples you tap to reveal one step at a time, a 🔊 read-aloud button and a 3-question check. The **Learn** tab schedules lessons day by day up to your exam date (with catch-up for missed days), and the home screen shows **Today's class**.
+56 lessons (about 12½ hours, roughly 420 slides) cover the whole CPA Management Accounting study guide, with the published errata applied. Everything is explained in simple words through one running story: Lily's lemonade stand growing into a juice factory.
+
+Each lesson has:
+- swipeable slides
+- worked examples you tap to reveal one step at a time
+- exam-trap warnings
+- a 🔊 read-aloud button
+- a 5-question check drawn from that lesson's own question pool, including fresh calculations
+
+The **Learn** tab schedules lessons day by day up to your exam date, with catch-up for missed days. The home screen shows **Today's class**.
+
+### Lessons and games match
+Every question in the app belongs to the lesson that teaches it: the 260 concept questions, every lesson's question pool, all 53 calculation generators and every sorting set.
+- **Games use only what you've learned:** they ask only about lessons you've finished. If you open a module game before doing any of its lessons, it suggests the lesson first. You can still choose *Play anyway*.
+- **Turning it off:** go to *More → Games only ask about finished lessons*.
+- **Revising mistakes:** in the results screen, every mistake has a **📖 Revise** button that opens the lesson behind it.
+- **Final Boss:** the mock exam always uses the whole syllabus, like the real exam.
+- **Checking it:** `node tools/check_coverage.mjs` confirms that every question maps to a lesson and that each correct answer's key words appear in that lesson's slides.
 
 ## What's inside
 | Mode | Module | Style |

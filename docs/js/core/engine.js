@@ -203,11 +203,12 @@ export class Game {
       <div class="stats"><div><b>${Math.round(this.score)}</b><span>score</span></div><div><b>${acc}%</b><span>accuracy (${right}/${n})</span></div>
       <div><b>+${xp}</b><span>XP</span></div><div><b>×${this.bestCombo}</b><span>best combo</span></div></div>
       <div class="vsbot ${acc >= botAcc ? 'ahead' : 'behind'}">🤖 ${esc(s.settings.botName)} studied the same ${n} questions and got <b>${botAcc}%</b> → you're <b>${acc >= botAcc ? 'ahead' : 'behind'}</b>. Readiness: <b>${readiness()}%</b> vs bot <b>${readiness('bot')}%</b></div>
-      ${wrong.length ? `<details class="review" open><summary>Review ${wrong.length} mistake${wrong.length > 1 ? 's' : ''}</summary>${wrong.slice(0, 25).map(a => `<div class="rv"><div class="rv-q">${esc(a.q.q)}</div><div class="rv-a">✔ ${esc(a.q.opts[a.q.a])}</div><div class="rv-e">${esc(a.q.ex || '')}</div></div>`).join('')}</details>` : (n ? '<p class="perfect">Flawless! ✨</p>' : '')}
+      ${wrong.length ? `<details class="review" open><summary>Review ${wrong.length} mistake${wrong.length > 1 ? 's' : ''}</summary>${wrong.slice(0, 25).map(a => `<div class="rv"><div class="rv-q">${esc(a.q.q)}</div><div class="rv-a">✔ ${esc(a.q.opts[a.q.a])}</div><div class="rv-e">${esc(a.q.ex || '')}</div>${a.q.lesson && a.q.lessonTitle ? `<button class="rv-l" data-rev="${a.q.lesson}">📖 Revise: ${esc(a.q.lessonTitle)}</button>` : ''}</div>`).join('')}</details>` : (n ? '<p class="perfect">Flawless! ✨</p>' : '')}
       <div class="row"><button class="btn big again">↻ Play again</button><button class="btn ghost map">🗺 Map</button></div></div>`;
     this.stage.appendChild(el);
     el.querySelector('.again').onclick = () => { this.stop(); if (this.opts.online) this.app.go('lobby'); else this.app.play(this.constructor.id, { ...this.opts, skipCard: true }); };
     el.querySelector('.map').onclick = () => { this.stop(); this.app.go('map'); };
+    el.querySelectorAll('[data-rev]').forEach(b => b.onclick = () => { this.stop(); this.app.lesson(b.dataset.rev); });
   }
 
   // ── drawing helpers

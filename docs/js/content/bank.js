@@ -244,10 +244,10 @@ export const BANK = [
   ['6.4', 'An investor indifferent to risk, caring only about expected return, is…', ['Risk neutral', 'Risk averse', 'Risk seeker', 'Risk free'], 'Risk averse requires compensation for risk; seekers are attracted to it.', 'm6-8'],
   ['6.4', 'Preferring a 10% chance of $20,000 over a certain $5,000 indicates a…', ['Risk seeker', 'Risk averse investor', 'Risk neutral investor', 'Rational investor'], 'Expected value $2,000 < $5,000 yet still chosen.', 'm6-8'],
   ['6.4', '"What if?" questions about the future describe…', ['Scenario planning', 'Payback', 'ZBB', 'Kaizen'], 'Used for contingency plans and future environment.', 'm6-8'],
-  ['6.4', 'Stages of investment decision making (in order):', ['Origination → screening → analysis & acceptance → monitoring & review', 'Screening → origination → review → analysis', 'Analysis → origination → screening → review', 'Review → analysis → screening → origination'], 'The typical four-stage model.', 'm6-8'],
-  ['6.4', 'A post-completion audit…', ['Helps future investment decisions; cannot reverse this one', 'Reverses bad investments', 'Is done before approval', 'Replaces project controls'], 'It learns lessons and improves forecasting discipline.', 'm6-8'],
-  ['6.4', 'Project controls aim to ensure…', ['Spending stays within authorisation, no delays, benefits achieved', 'Projects are always accepted', 'Payback is shortened', 'No PCA is needed'], 'Control over excess spending, delays and anticipated benefits.', 'm6-8'],
-  ['6.4', 'Externally imposed limits on capital funds are called…', ['Hard capital rationing', 'Soft capital rationing', 'Zero-based budgeting', 'Payback'], 'Internally imposed limits = soft capital rationing.', 'm6-8'],
+  ['6.4', 'Stages of investment decision making (in order):', ['Origination → screening → analysis & acceptance → monitoring & review', 'Screening → origination → review → analysis', 'Analysis → origination → screening → review', 'Review → analysis → screening → origination'], 'The typical four-stage model.', 'm6-9'],
+  ['6.4', 'A post-completion audit…', ['Helps future investment decisions; cannot reverse this one', 'Reverses bad investments', 'Is done before approval', 'Replaces project controls'], 'It learns lessons and improves forecasting discipline.', 'm6-9'],
+  ['6.4', 'Project controls aim to ensure…', ['Spending stays within authorisation, no delays, benefits achieved', 'Projects are always accepted', 'Payback is shortened', 'No PCA is needed'], 'Control over excess spending, delays and anticipated benefits.', 'm6-9'],
+  ['6.4', 'Externally imposed limits on capital funds are called…', ['Hard capital rationing', 'Soft capital rationing', 'Zero-based budgeting', 'Payback'], 'Internally imposed limits = soft capital rationing.', 'm6-9'],
 
   // ───────── MODULE 7 ─────────
   ['7.1', 'JIT aims for…', ['Zero inventory and perfect quality', 'Large safety stocks', 'Long production runs', 'Many suppliers'], 'Demand-pull, eliminate non-value-added activities.', 'm7-1'],
@@ -273,10 +273,10 @@ export const BANK = [
   ['7.3', 'Theatre seats priced by location is differential pricing by…', ['Place', 'Time', 'Product version', 'Segment'], 'Different price for the same performance by seat.', 'm7-5'],
   ['7.3', 'In which life-cycle stage are profits LOWEST (often losses)?', ['Introduction', 'Growth', 'Maturity', 'Saturation'], 'High development & promotion costs, low sales.', 'm7-5'],
   ['7.3', 'A market with a few large firms dominating is…', ['Oligopoly', 'Monopoly', 'Perfect competition', 'Monopsony'], 'Prices tend to be stable; price leadership common.', 'm7-5'],
-  ['7.3', 'Target cost =', ['Target selling price − required profit', 'Standard cost + mark-up', 'Actual cost − variance', 'Market price + profit'], 'Product must be made for this cost or not launched.', 'm7-5'],
+  ['7.3', 'Target cost =', ['Target selling price − required profit', 'Standard cost + mark-up', 'Actual cost − variance', 'Market price + profit'], 'Product must be made for this cost or not launched.', 'm7-6'],
   ['7.3', 'An advantage of marginal cost-plus pricing:', ['Focuses attention on contribution', 'Guarantees fixed costs are covered', 'Ignores costs', 'Considers demand fully'], 'Simple, adjustable mark-up — but may not cover fixed costs.', 'm7-4'],
-  ['7.3', 'Where an external market exists, transfer prices are ideally based on…', ['Market price', 'Actual full cost', 'Budgeted sales', 'Zero'], 'Market price supports autonomy and fair performance evaluation.', 'm7-5'],
-  ['7.3', 'Transfer pricing aims to…', ['Keep divisional autonomy without hurting company profit', 'Maximise one division\'s profit', 'Avoid all tax', 'Remove the need for budgets'], 'Goal congruence + fair performance measurement + autonomy.', 'm7-5'],
+  ['7.3', 'Where an external market exists, transfer prices are ideally based on…', ['Market price', 'Actual full cost', 'Budgeted sales', 'Zero'], 'Market price supports autonomy and fair performance evaluation.', 'm7-6'],
+  ['7.3', 'Transfer pricing aims to…', ['Keep divisional autonomy without hurting company profit', 'Maximise one division\'s profit', 'Avoid all tax', 'Remove the need for budgets'], 'Goal congruence + fair performance measurement + autonomy.', 'm7-6'],
 ];
 
 // Classification sets used by sorting-style action games (runner lanes, ninja slicing, scorecard drops).

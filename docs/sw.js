@@ -1,5 +1,5 @@
 // Offline cache: the whole game works without internet after the first visit (multiplayer needs internet).
-const VERSION = 'cc-v2';
+const VERSION = 'cc-v3';
 const CORE = [
   './',
   "css/style.css",

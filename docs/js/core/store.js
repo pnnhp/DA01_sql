@@ -15,7 +15,7 @@ function blank() {
   return {
     v: 1,
     profile: { name: '', id: Math.random().toString(36).slice(2, 10), created: Date.now() },
-    settings: { sound: true, music: true, examDate: '2027-01-25', botLevel: 'steady', botName: 'Ghost', haptics: true, planStart: localIso(new Date()) },
+    settings: { sound: true, music: true, examDate: '2027-01-25', botLevel: 'steady', botName: 'Ghost', haptics: true, lockLessons: true, planStart: localIso(new Date()) },
     lessons: {},       // lessonId -> { done: time, score, total }
     los: {},           // lo -> { acc, n, last }  (EMA accuracy, attempts, last practice time)
     bot: { los: {} },  // lo -> { m (knowledge 0..1), acc, n, last }

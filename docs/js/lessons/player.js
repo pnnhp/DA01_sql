@@ -3,7 +3,7 @@ import { lessonById, LESSONS } from './index.js';
 import * as store from '../core/store.js';
 import { sfx, unlock } from '../core/audio.js';
 import { esc, LETTERS } from '../core/engine.js';
-import { shuffle } from '../core/questions.js';
+import { lessonQuiz } from '../core/questions.js';
 import { MODULES } from '../content/syllabus.js';
 
 const GAME_NAMES = { ninja: '🥷 Info Ninja', runner: '🏃 Cost Runner', factory: '🏭 Overhead Factory', strike: '🚀 Variance Strike', tycoon: '🏢 Division Tycoon', rush: '⚙️ Factory Rush', warehouse: '📦 Warehouse Panic' };
@@ -34,7 +34,7 @@ export function playLesson(app, id) {
   const mod = MODULES.find(m => m.id === L.mod); const color = mod ? mod.color : '#ffd23f';
   document.body.classList.add('ingame');
   const root = app.el; let i = 0, reading = false;
-  const qs = L.check.map(([q, opts, why]) => { const order = shuffle([0, 1, 2, 3]); return { q, opts: order.map(k => opts[k]), a: order.indexOf(0), why }; });
+  const qs = lessonQuiz(L.id, 5);
   let qi = 0, right = 0;
 
   const frame = inner => {
@@ -79,8 +79,8 @@ export function playLesson(app, id) {
       if (root.querySelector('.opt.good')) return; const k = +b.dataset.k, ok = k === q.a;
       root.querySelectorAll('.opt').forEach((x, j) => { if (j === q.a) x.classList.add('good'); else if (j === k) x.classList.add('bad'); });
       if (ok) right++; sfx(ok ? 'correct' : 'wrong');
-      if (L.lo) store.record(L.lo, ok);
-      root.querySelector('#fb').innerHTML = `<div class="lz-fb ${ok ? 'ok' : 'no'}">${ok ? '🎉 Correct!' : '🙈 Not quite.'} ${esc(q.why)}</div>`;
+      if (q.lo) store.record(q.lo, ok);
+      root.querySelector('#fb').innerHTML = `<div class="lz-fb ${ok ? 'ok' : 'no'}">${ok ? '🎉 Correct!' : '🙈 Not quite.'} ${esc(q.ex)}</div>`;
       const n = root.querySelector('#next'); n.disabled = false; n.onclick = () => { hush(); qi++; quiz(); };
     });
   };

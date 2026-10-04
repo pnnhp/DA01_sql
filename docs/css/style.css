@@ -203,3 +203,8 @@ table.t th, table.t td { border: 1px solid #ffffff1f; padding: 7px 8px; text-ali
 .lz-opts .opt b { background: #ffffff20; border-radius: 8px; padding: 2px 8px; } .lz-opts .opt.good { border-color: var(--green); background: #3fff8b22; } .lz-opts .opt.bad { border-color: var(--pink); background: #ff3f7a22; }
 .lz-fb { border-radius: 12px; padding: 10px 12px; margin-top: 8px; } .lz-fb.ok { background: #3fff8b22; } .lz-fb.no { background: #ff3f7a22; }
 .lz-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.rv-l{margin-top:6px;background:none;border:1px solid rgba(255,210,63,.5);color:#ffd23f;border-radius:10px;padding:5px 10px;font:inherit;font-size:.85em;cursor:pointer}
+.gate p{margin:.4em 0}
+.lz-content { overflow-wrap: anywhere; }
+.lz-content table.t { display: block; overflow-x: auto; max-width: 100%; }
+.lz-content .formula, .lz-content .eg { overflow-x: auto; }

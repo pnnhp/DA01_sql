@@ -507,5 +507,5 @@ export const GEN_LESSON = {
   foh_exp: 'm4-10', foh_vol: 'm4-10', sales_price: 'm4-11', sales_vol: 'm4-11', investigate: 'm4-12',
   roi: 'm5-3', ri: 'm5-3', margin: 'm5-2', ratios: 'm5-2',
   bep_units: 'm6-4', bep_rev: 'm6-4', cs_price: 'm6-4', target_profit: 'm6-5', mos: 'm6-5', limiting: 'm6-2', special_order: 'm6-1', make_buy: 'm6-3', payback: 'm6-6', arr: 'm6-7',
-  reorder: 'm7-2', maxlevel: 'm7-2', minlevel: 'm7-2', eoq: 'm7-3', avg_inv: 'm7-3', markup: 'm7-4', ped: 'm7-5', target_cost: 'm7-5',
+  reorder: 'm7-2', maxlevel: 'm7-2', minlevel: 'm7-2', eoq: 'm7-3', avg_inv: 'm7-3', markup: 'm7-4', ped: 'm7-5', target_cost: 'm7-6',
 };
