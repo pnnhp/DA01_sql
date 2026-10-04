@@ -1,5 +1,5 @@
 // Offline cache: the whole game works without internet after the first visit (multiplayer needs internet).
-const VERSION = 'cc-v1';
+const VERSION = 'cc-v2';
 const CORE = [
   './',
   "css/style.css",
@@ -25,6 +25,15 @@ const CORE = [
   "js/games/tanks.js",
   "js/games/tycoon.js",
   "js/games/warehouse.js",
+  "js/lessons/index.js",
+  "js/lessons/m1.js",
+  "js/lessons/m2.js",
+  "js/lessons/m3.js",
+  "js/lessons/m4.js",
+  "js/lessons/m5.js",
+  "js/lessons/m6.js",
+  "js/lessons/m7.js",
+  "js/lessons/player.js",
   "js/main.js",
   "manifest.webmanifest",
   "vendor/peerjs.min.js",

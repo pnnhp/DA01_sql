@@ -9,6 +9,9 @@ It's an installable web app (PWA) that runs on iPhone, Android and laptops, and 
 3. **iPhone:** open the page in Safari → Share → **Add to Home Screen**.
    **Laptop:** use Chrome/Edge's install icon, or just bookmark it.
 
+## 📚 Lessons (start here!)
+53 short lessons (about 9 hours in total) cover every session in the CPA study map, explained in simple words through one running story: Lily's lemonade stand growing into a juice factory. Each lesson has swipeable slides, worked examples you tap to reveal one step at a time, a 🔊 read-aloud button and a 3-question check. The **Learn** tab schedules lessons day by day up to your exam date (with catch-up for missed days), and the home screen shows **Today's class**.
+
 ## What's inside
 | Mode | Module | Style |
 |---|---|---|

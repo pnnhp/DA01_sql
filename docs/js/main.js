@@ -4,6 +4,8 @@ import * as store from './core/store.js';
 import { unlock, sfx, music, refreshMusic } from './core/audio.js';
 import { esc } from './core/engine.js';
 import { net } from './core/net.js';
+import { LESSONS, lessonById, lessonsForModule, dueLessons, lessonSchedule, iso } from './lessons/index.js';
+import { playLesson } from './lessons/player.js';
 
 const S = store.state;
 export const GAMES = {
@@ -30,11 +32,12 @@ const app = {
     const G = mod.default; const game = new G(this, opts);
     this.current = game; game.mount(this.el.querySelector('.gameroot')); game.start();
   },
+  lesson(id) { if (this.current) { try { this.current.stop(); } catch (e) { /* ignore */ } this.current = null; } unlock(); sfx('click'); playLesson(this, id); },
   go(screen, arg) {
     if (this.current) { try { this.current.stop(); } catch (e) { /* ignore */ } this.current = null; }
     document.body.classList.remove('ingame');
     this.screen = screen; render(screen, arg);
-    document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.s === screen));
+    document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.s === (screen === 'plan' ? 'learn' : screen)));
     window.scrollTo(0, 0);
   },
 };
@@ -63,7 +66,7 @@ function render(screen, arg) {
   const root = app.el;
   if (!S().profile.name) return renderWelcome();
   music(screen === 'map' ? 'menu' : 'calm');
-  const views = { map: viewMap, arcade: viewArcade, ranks: viewRanks, plan: viewPlan, settings: viewSettings, lobby: viewLobby, module: viewModule };
+  const views = { map: viewMap, arcade: viewArcade, ranks: viewRanks, plan: viewLearn, learn: viewLearn, settings: viewSettings, lobby: viewLobby, module: viewModule };
   root.innerHTML = `<div class="screen">${header()}<main>${(views[screen] || viewMap)(arg)}</main></div>`;
   bind(root);
 }
@@ -83,12 +86,24 @@ function renderWelcome() {
 }
 
 function todaysMission() {
-  const { plan } = buildPlan(S().settings.examDate);
+  const { plan } = buildPlan(S().settings.examDate, new Date(S().settings.planStart));
   const now = new Date(); const cur = plan.find(p => now >= p.start && now <= new Date(p.end.getTime() + 86399000)) || plan[0];
   const weak = store.weakestLOs(3);
   const mod = cur.mod || +weak[0].split('.')[0];
   const gid = Object.keys(GAMES).find(k => GAMES[k].mod === mod);
   return { cur, mod, gid, weak };
+}
+
+function todayClass(compact) {
+  const s = S(); const t = dueLessons(s.settings.examDate, s.settings.planStart, store.lessonDone);
+  const dayNo = Math.max(1, Math.floor((new Date(iso(new Date())) - new Date(s.settings.planStart)) / 86400000) + 1);
+  const row = (x, done) => { const L = lessonById(x.id); const m = MODULES.find(mm => mm.id === L.mod);
+    return `<button class="lrow ${done ? 'done' : ''} ${!done && x.date < iso(new Date()) ? 'late' : ''}" data-lesson="${L.id}" style="--mc:${m ? m.color : '#ffd23f'}"><span class="lck">${done ? '✅' : '📖'}</span><span class="lt"><b>${esc(L.title)}</b><i>${m ? m.short : 'Start'} · ~${L.mins} min${!done && x.date < iso(new Date()) ? ' · catch-up' : ''}</i></span><span class="lgo">▶</span></button>`; };
+  const list = [...t.doneToday.map(x => row(x, true)), ...t.due.slice(0, compact ? 3 : 12).map(x => row(x, false))].join('');
+  const more = t.due.length > (compact ? 3 : 12) ? `<p class="muted small">+${t.due.length - (compact ? 3 : 12)} more to catch up</p>` : '';
+  const empty = !t.due.length ? (t.next ? `<p>🎉 You're all caught up for today! Want to get ahead?</p><button class="lrow" data-lesson="${t.next.id}"><span class="lck">⏭</span><span class="lt"><b>${esc(lessonById(t.next.id).title)}</b><i>scheduled ${t.next.date}</i></span><span class="lgo">▶</span></button>` : '<p>🏁 All lessons done! Now it\'s revision time: play Final Boss mock exams daily.</p>') : '';
+  return `<section class="classcard"><div class="mtag">📚 TODAY'S CLASS · DAY ${dayNo}</div><h3>${t.due.length ? `${t.due.length} lesson${t.due.length > 1 ? 's' : ''} to do` : 'Lessons done ✔'}</h3>
+    <div class="lrows">${list}</div>${more}${empty}</section>`;
 }
 
 function viewMap() {
@@ -100,7 +115,7 @@ function viewMap() {
       <div class="nds">${GAMES[g].emoji} ${GAMES[g].title} · ${mm.weight}% of exam</div>
       <div class="ndb"><span>You ${pct(v)}%</span><span>🤖 ${pct(bv)}%</span></div></div></button>`;
   }).join('<div class="path"></div>');
-  return `<section class="mission" style="--mc:${m.color}"><div class="mtag">TODAY'S MISSION</div>
+  return `${todayClass(true)}<section class="mission" style="--mc:${m.color}"><div class="mtag">🎮 THEN PLAY</div>
       <h3>${tm.cur.mod ? `${m.short}: ${m.name}` : 'Revision sprint'} </h3><p>Plan: ~${tm.cur.hoursPerDay} h/day. Weak spots: ${tm.weak.map(lo => `<b>${lo}</b>`).join(', ')}</p>
       <div class="row"><button class="btn" data-play="${tm.gid}">${GAMES[tm.gid].emoji} Play ${GAMES[tm.gid].title}</button><button class="btn ghost" data-play="royale">🪂 Quick Royale</button></div></section>
     <section class="specials">
@@ -119,6 +134,7 @@ function viewModule(id) {
   <section class="modhead" style="--mc:${m.color}"><h2>${m.short} · ${m.name}</h2><p>${m.weight}% of the exam · study-map time ${m.hours} h</p></section>
   <div class="gamecard big" data-play="${gid}" style="--mc:${m.color}"><div class="ge">${GAMES[gid].emoji}</div><div><b>${GAMES[gid].title}</b><i>${GAMES[gid].style}</i><p>${GAMES[gid].desc}</p></div><span class="playbtn">▶</span></div>
   <div class="row"><button class="btn ghost" data-royale="${m.id}">🪂 Royale: ${m.short} only</button><button class="btn ghost" data-tanks="${m.id}">💣 Tanks: ${m.short} only</button></div>
+  <h3 class="sec">📚 Lessons</h3><div class="lrows">${lessonsForModule(m.id).map(L => `<button class="lrow ${store.lessonDone(L.id) ? 'done' : ''}" data-lesson="${L.id}" style="--mc:${m.color}"><span class="lck">${store.lessonDone(L.id) ? '✅' : '📖'}</span><span class="lt"><b>${esc(L.title)}</b><i>~${L.mins} min</i></span><span class="lgo">▶</span></button>`).join('')}</div>
   <h3 class="sec">Learning objectives</h3>
   <div class="lolist">${Object.entries(m.los).map(([lo, n]) => { const v = store.loMastery(lo), b = store.loMastery(lo, 'bot'); return `<div class="lo"><div><b>${lo}</b> ${n}</div>
     <div class="bars"><div class="bar me"><i style="width:${pct(v)}%"></i></div><div class="bar bot"><i style="width:${pct(b)}%"></i></div></div><span>${pct(v)}% · 🤖${pct(b)}%</span></div>`; }).join('')}</div>
@@ -135,7 +151,7 @@ function viewArcade() {
 function viewRanks() {
   const lb = store.leaderboard(), r = store.readiness(), br = store.readiness('bot');
   const days = S().days; const cells = [];
-  for (let i = 55; i >= 0; i--) { const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10); const n = days[d] || 0; cells.push(`<i title="${d}: ${n}" class="h${n === 0 ? 0 : n < 15 ? 1 : n < 40 ? 2 : 3}"></i>`); }
+  for (let i = 55; i >= 0; i--) { const d = iso(new Date(Date.now() - i * 86400000)); const n = days[d] || 0; cells.push(`<i title="${d}: ${n}" class="h${n === 0 ? 0 : n < 15 ? 1 : n < 40 ? 2 : 3}"></i>`); }
   return `<section class="readiness"><div>${ring(r / 100, '#3fff8b', 110, r + '%')}<b>You</b></div><div class="vs">VS</div><div>${ring(br / 100, '#b04bff', 110, br + '%')}<b>🤖 ${esc(S().settings.botName)}</b></div></section>
   <p class="center muted">Exam readiness = mastery × exam weighting. Predicted exam score ≈ <b>${store.predictedScore()}%</b>. ${r >= br ? 'You are ahead of your bot — keep the gap!' : 'Your bot is ahead — it studies at a typical pace, so beat it!'}</p>
   <h3 class="sec">Leaderboard</h3><div class="lb">${lb.map((p, i) => `<div class="lbrow ${p.me ? 'me' : ''} ${p.bot ? 'bot' : ''}"><span class="pos">${i + 1}</span><span class="nm">${esc(p.name)}${p.me ? ' (you)' : ''}</span><span class="rk">${p.rank}</span><b>${p.readiness}%</b></div>`).join('')}</div>
@@ -146,19 +162,30 @@ function viewRanks() {
   <h3 class="sec">Ranks</h3><div class="ranks">${store.RANKS.map(k => `<span class="${r >= k.min ? 'got' : ''}">${k.icon} ${k.name} <small>${k.min}%+</small></span>`).join('')}</div>`;
 }
 
-function viewPlan() {
-  const s = S(); const { days, plan } = buildPlan(s.settings.examDate);
-  const now = new Date();
-  return `<section class="panel"><h2>📅 Exam date</h2><label class="row">Exam on <input type="date" id="exd" value="${s.settings.examDate}"></label>
-    <p class="muted">${days} days to go. Moved your exam earlier or later? Change the date and the plan rebuilds itself.</p></section>
-  <h3 class="sec">Your plan (based on study-map hours)</h3><div class="plan">${plan.map(p => {
+function viewLearn() {
+  const s = S(); const { items, plan } = lessonSchedule(s.settings.examDate, s.settings.planStart);
+  const now = new Date(); const total = LESSONS.length, done = LESSONS.filter(l => store.lessonDone(l.id)).length;
+  const todayIso = iso(new Date());
+  const course = [{ id: 0, short: 'Start', name: 'Start here', color: '#ffd23f' }, ...MODULES].map(m => {
+    const ls = LESSONS.filter(l => l.mod === m.id); const d = ls.filter(l => store.lessonDone(l.id)).length;
+    return `<details class="course" ${ls.some(l => !store.lessonDone(l.id)) && d > 0 ? 'open' : ''} style="--mc:${m.color}"><summary><b>${m.short}${m.id ? ' · ' + m.name : ''}</b><span>${d}/${ls.length}</span></summary>
+      <div class="lrows">${ls.map(L => { const it = items.find(x => x.id === L.id); const dn = store.lessonDone(L.id); const late = !dn && it && it.date < todayIso;
+        return `<button class="lrow ${dn ? 'done' : ''} ${late ? 'late' : ''}" data-lesson="${L.id}" style="--mc:${m.color}"><span class="lck">${dn ? '✅' : late ? '⏰' : '📖'}</span><span class="lt"><b>${esc(L.title)}</b><i>${it ? 'Day ' + it.day + ' · ' + new Date(it.date).toLocaleDateString() : ''} · ~${L.mins} min</i></span><span class="lgo">▶</span></button>`; }).join('')}</div></details>`;
+  }).join('');
+  return `${todayClass(false)}
+  <section class="panel"><h2>📈 Course progress</h2><div class="bar me" style="height:12px"><i style="width:${Math.round(done / total * 100)}%"></i></div><p class="muted">${done} of ${total} lessons done. Each lesson is 5–14 minutes: slides, tap-to-reveal examples, 🔊 read-aloud and a 3-question check.</p></section>
+  <h3 class="sec">All lessons</h3>${course}
+  <section class="panel"><h2>📅 Exam date & plan</h2><label class="row">Exam on <input type="date" id="exd" value="${s.settings.examDate}"></label>
+    <p class="muted">Plan started ${new Date(s.settings.planStart).toLocaleDateString()}. Changing the exam date respreads the remaining lessons.</p>
+    <button class="btn ghost small" id="replan">↻ Restart my plan from today</button></section>
+  <div class="plan">${plan.map(p => {
     const m = MODULES.find(x => x.id === p.mod); const active = now >= p.start && now <= new Date(p.end.getTime() + 86399000);
     return `<div class="pl ${active ? 'on' : ''}" style="--mc:${m ? m.color : '#ff3f7a'}"><b>${m ? m.short + ' ' + m.name : '🔁 Revision + mock exams'}</b>
       <span>${p.start.toLocaleDateString()} → ${p.end.toLocaleDateString()} · ${p.days} days · ~${p.hoursPerDay} h/day</span>
-      ${m ? `<em>Mastery ${pct(store.moduleMastery(m.id))}%</em>` : '<em>Final Boss daily</em>'}</div>`; }).join('')}</div>
-  <section class="panel tips"><h3>How to use Cost Commando</h3><ul>
-    <li>Play the module game for the current block every day (2–3 rounds).</li><li>Finish each week with an <b>Audit Royale</b> or <b>Ledger Tanks</b> mixed match.</li>
-    <li>From the revision block onwards: one <b>Final Boss</b> mock exam a day.</li><li>Real exam: 100 MCQs in 3 h 15 min → about 2 minutes each.</li></ul></section>`;
+      ${m ? `<em>Lessons ${lessonsForModule(m.id).filter(l => store.lessonDone(l.id)).length}/${lessonsForModule(m.id).length} · mastery ${pct(store.moduleMastery(m.id))}%</em>` : '<em>Final Boss mock exam daily</em>'}</div>`; }).join('')}</div>
+  <section class="panel tips"><h3>Your daily routine</h3><ol>
+    <li>📖 Do today's lessons first (they're short!). Tap 🔊 if you'd like them read to you.</li><li>🎮 Play that module's game 2–3 times to practise.</li>
+    <li>🪂 Finish the week with an Audit Royale or Ledger Tanks mixed match.</li><li>🐉 In the revision block: one Final Boss mock exam a day.</li></ol></section>`;
 }
 
 function viewSettings() {
@@ -202,7 +229,9 @@ function bind(root) {
   root.querySelectorAll('[data-royale]').forEach(b => b.onclick = () => app.play('royale', { mods: [+b.dataset.royale] }));
   root.querySelectorAll('[data-tanks]').forEach(b => b.onclick = () => app.play('tanks', { mods: [+b.dataset.tanks] }));
   const $ = id => root.querySelector('#' + id);
-  if ($('exd')) $('exd').onchange = e => { S().settings.examDate = e.target.value; store.save(); app.go('plan'); };
+  if ($('exd')) $('exd').onchange = e => { S().settings.examDate = e.target.value; store.save(); app.go('learn'); };
+  if ($('replan')) $('replan').onclick = () => { if (confirm('Restart the lesson schedule from today? (Finished lessons stay finished.)')) { S().settings.planStart = iso(new Date()); store.save(); app.go('learn'); } };
+  root.querySelectorAll('[data-lesson]').forEach(b => b.onclick = () => app.lesson(b.dataset.lesson));
   if ($('pn')) {
     $('pn').onchange = e => { S().profile.name = e.target.value.trim() || S().profile.name; store.save(); };
     $('bn').onchange = e => { S().settings.botName = e.target.value.trim() || 'Ghost'; store.save(); };
@@ -247,7 +276,7 @@ function pendingJoin() { const m = location.hash.match(/join=([A-Z0-9]+)/i); ret
 function boot() {
   app.el = document.getElementById('app');
   const tabs = document.createElement('nav'); tabs.className = 'tabbar';
-  tabs.innerHTML = [['map', '🗺', 'Map'], ['arcade', '🎮', 'Play'], ['ranks', '🏆', 'Ranks'], ['plan', '📅', 'Plan'], ['settings', '⚙️', 'More']]
+  tabs.innerHTML = [['map', '🗺', 'Map'], ['arcade', '🎮', 'Play'], ['ranks', '🏆', 'Ranks'], ['learn', '📚', 'Learn'], ['settings', '⚙️', 'More']]
     .map(([s, i, l]) => `<button data-s="${s}"><span>${i}</span>${l}</button>`).join('');
   document.body.appendChild(tabs);
   tabs.onclick = e => { const b = e.target.closest('button'); if (b) { unlock(); sfx('click'); app.go(b.dataset.s); } };

@@ -3,6 +3,7 @@ import { MODULES, ALL_LOS, loModule } from '../content/syllabus.js';
 
 const KEY = 'costcommando.v1';
 const DAY = 86400000;
+const localIso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const BOT_LEVELS = {
   chill: { label: 'Chill', rate: 0.035 },
@@ -14,7 +15,8 @@ function blank() {
   return {
     v: 1,
     profile: { name: '', id: Math.random().toString(36).slice(2, 10), created: Date.now() },
-    settings: { sound: true, music: true, examDate: '2027-01-25', botLevel: 'steady', botName: 'Ghost', haptics: true },
+    settings: { sound: true, music: true, examDate: '2027-01-25', botLevel: 'steady', botName: 'Ghost', haptics: true, planStart: localIso(new Date()) },
+    lessons: {},       // lessonId -> { done: time, score, total }
     los: {},           // lo -> { acc, n, last }  (EMA accuracy, attempts, last practice time)
     bot: { los: {} },  // lo -> { m (knowledge 0..1), acc, n, last }
     xp: 0, coins: 0,
@@ -29,7 +31,10 @@ function blank() {
 
 let S = load();
 function load() {
-  try { const raw = localStorage.getItem(KEY); if (raw) return Object.assign(blank(), JSON.parse(raw)); } catch (e) { /* storage unavailable */ }
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) { const b = blank(), o = JSON.parse(raw); const out = Object.assign(b, o); out.settings = Object.assign(blank().settings, o.settings || {}); out.lessons = o.lessons || {}; return out; }
+  } catch (e) { /* storage unavailable */ }
   return blank();
 }
 export function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }
@@ -42,7 +47,7 @@ export function importCode(code) {
   S = Object.assign(blank(), obj); save();
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localIso(new Date());
 
 // Forgetting: mastery fades slowly if a topic isn't revisited (encourages spaced review).
 function decay(last) { if (!last) return 1; const d = (Date.now() - last) / DAY; return d < 3 ? 1 : Math.max(0.55, Math.exp(-(d - 3) / 60)); }
@@ -90,7 +95,7 @@ export function record(lo, correct) {
 
   const d = today(); S.days[d] = (S.days[d] || 0) + 1;
   if (S.streak.lastDay !== d) {
-    const y = new Date(Date.now() - DAY).toISOString().slice(0, 10);
+    const y = localIso(new Date(Date.now() - DAY));
     S.streak.days = S.streak.lastDay === y ? S.streak.days + 1 : 1; S.streak.lastDay = d;
   }
   save();
@@ -129,5 +134,15 @@ export function leaderboard() {
   const botR = readiness('bot');
   const bot = { id: 'bot', name: `🤖 ${S.settings.botName}`, readiness: botR, xp: null, rank: rankFor(botR).name, bot: true };
   return [{ ...me, me: true }, bot, ...S.friends].sort((a, b) => b.readiness - a.readiness);
+}
+// ── lessons
+export function lessonDone(id) { return !!(S.lessons[id] && S.lessons[id].done); }
+export function markLesson(id, score, total) {
+  const first = !lessonDone(id);
+  S.lessons[id] = { done: Date.now(), score, total };
+  const d = today(); S.days[d] = (S.days[d] || 0) + 1;
+  if (S.streak.lastDay !== d) { const y = localIso(new Date(Date.now() - DAY)); S.streak.days = S.streak.lastDay === y ? S.streak.days + 1 : 1; S.streak.lastDay = d; }
+  if (first) addXP(40); else save();
+  return first;
 }
 export { BOT_LEVELS, loModule };
