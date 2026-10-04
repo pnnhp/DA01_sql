@@ -229,11 +229,11 @@ export default class Tanks extends Game {
     // HUD: hp bars + wind
     const top = this.hud.querySelector('.qpanel') ? this.hud.querySelector('.qpanel').offsetHeight + 16 : 14;
     this.tanks.forEach((t, i) => { const x = i ? W - 14 - 150 : 14, y = top; g.fillStyle = '#0008'; g.fillRect(x, y, 150, 30); g.fillStyle = t.col; g.fillRect(x + 3, y + 18, 144 * t.hp / 100, 8); this.text(`${t.name} ${t.hp}`, x + 6, y + 10, { size: 12, align: 'left' }); });
-    this.text(`Wind ${this.wind > 0 ? '→' : this.wind < 0 ? '←' : '·'} ${Math.abs(this.wind)}`, W / 2, top + 14, { size: 15, color: '#fff' });
-    if (this.phase === 'aim') { const t = this.tanks[this.turn]; this.text(`Angle ${Math.round(t.ang)}° · Power ${Math.round(t.pow)} · ⏱${Math.ceil(this.aimTime || 0)}`, W / 2, top + 40, { size: 14 });
-      g.fillStyle = '#0008'; g.fillRect(W / 2 - 100, top + 54, 200, 10); g.fillStyle = '#ff3f7a'; g.fillRect(W / 2 - 100, top + 54, 2 * t.pow, 10);
-      if (this.isTouch()) this.text('Drag back from anywhere & release to fire (like a slingshot)', W / 2, top + 78, { size: 11, stroke: false, color: '#333', weight: 600 });
-      else this.text('←/→ move · ↑/↓ angle · hold SPACE to charge power, release to fire (or drag with mouse)', W / 2, top + 78, { size: 12, stroke: false, color: '#333', weight: 600 }); }
+    const narrow = W < 520; this.text(`Wind ${this.wind > 0 ? '→' : this.wind < 0 ? '←' : '·'} ${Math.abs(this.wind)}`, W / 2, top + (narrow ? 46 : 14), { size: 15, color: '#fff' });
+    if (this.phase === 'aim') { const t = this.tanks[this.turn]; this.text(`Angle ${Math.round(t.ang)}° · Power ${Math.round(t.pow)} · ⏱${Math.ceil(this.aimTime || 0)}`, W / 2, top + (narrow ? 70 : 40), { size: 14 });
+      g.fillStyle = '#0008'; g.fillRect(W / 2 - 100, top + (narrow ? 84 : 54), 200, 10); g.fillStyle = '#ff3f7a'; g.fillRect(W / 2 - 100, top + (narrow ? 84 : 54), 2 * t.pow, 10);
+      if (this.isTouch()) this.text('Drag back from anywhere & release to fire (like a slingshot)', W / 2, top + (narrow ? 108 : 78), { size: 11, stroke: false, color: '#333', weight: 600 });
+      else this.text('←/→ move · ↑/↓ angle · hold SPACE to charge power, release to fire (or drag with mouse)', W / 2, top + (narrow ? 108 : 78), { size: 12, stroke: false, color: '#333', weight: 600 }); }
     if (this.sling) { g.strokeStyle = '#fff'; g.lineWidth = 3; g.setLineDash([6, 6]); g.beginPath(); g.moveTo(this.sling.x, this.sling.y); g.lineTo(this.sling.cx, this.sling.cy); g.stroke(); g.setLineDash([]); }
     if (W < H && !this.rotHint) this.text('↻ rotate for a bigger battlefield', W / 2, H - 70, { size: 11, color: '#333', stroke: false, weight: 600 });
   }

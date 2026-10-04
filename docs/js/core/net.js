@@ -66,7 +66,7 @@ class Net {
       if (!msg || !msg.t) return;
       if (msg.t === 'hello') {
         this.peerName = msg.d.name; this.peerSnap = msg.d; store.upsertFriend(msg.d);
-        if (!this.greeted) { this.greeted = true; this.onConnected && this.onConnected(); }
+        if (!this.greeted) { this.greeted = true; this.send('hello', store.snapshot()); this.onConnected && this.onConnected(); }
         return;
       }
       if (msg.t === 'start') { this.onStart && this.onStart(msg.d.mode, msg.d.opts || {}); return; }

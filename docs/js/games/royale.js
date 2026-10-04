@@ -68,7 +68,7 @@ export default class Royale extends Game {
   begin() {
     this.ready = true;
     const s = state();
-    const mk = (name, col, human, know) => { let x, y; do { x = 200 + Math.random() * (WS - 400); y = 200 + Math.random() * (WS - 400); } while (this.collides(x, y, 16)); return { x, y, hp: 100, armor: 0, w: 'pistol', cd: 0, ang: 0, alive: true, name, col, human, know, kills: 0, vx: 0, vy: 0, target: null, think: 0, flagPick: null, hitT: 0 }; };
+    const placed = []; const mk = (name, col, human, know) => { let x, y, tries = 0; do { const a = Math.random() * 6.283, d = Math.sqrt(Math.random()) * 1000; x = WS / 2 + Math.cos(a) * d; y = WS / 2 + Math.sin(a) * d; tries++; } while ((this.collides(x, y, 16) || placed.some(p => Math.hypot(p.x - x, p.y - y) < (tries < 200 ? 260 : 60))) && tries < 400); placed.push({ x, y }); return { x, y, hp: 100, armor: 0, w: 'pistol', cd: 0, ang: 0, alive: true, name, col, human, know, kills: 0, vx: 0, vy: 0, target: null, think: 0, flagPick: null, hitT: 0 }; };
     this.humans = [mk(s.profile.name || 'You', '#3fff8b', true)];
     if (this.online) this.humans.push(mk(net.status().peerName || 'Squadmate', '#3fd2ff', true));
     if (this.online && !this.isHost) this.humans.reverse(); // local player always humans[0]
@@ -141,6 +141,7 @@ export default class Royale extends Game {
   hurt(e, dmg, by) {
     if (!e.alive) return;
     if (e.armor > 0) { const ab = Math.min(e.armor, dmg * 0.6); e.armor -= ab; dmg -= ab; }
+    if (e.human && by && !by.human) dmg *= 0.75; // bots hit a little softer than humans
     e.hp -= dmg; e.hitT = 0.15;
     if (e === this.me) { vibrate(30); this.shake(4, 0.12); }
     if (e.hp <= 0) {
@@ -227,7 +228,7 @@ export default class Royale extends Game {
     if (b.target) { const dx = b.target.x - b.x, dy = b.target.y - b.y, d = Math.hypot(dx, dy); if (d > 10) { const sp = 165; const px = b.x, py = b.y; this.moveEnt(b, dx / d * sp * dt, dy / d * sp * dt); if (Math.abs(b.x - px) + Math.abs(b.y - py) < 0.5) b.think = 0; } }
     if (b.enemy && b.enemy.alive) {
       const d2 = this.dist2(b, b.enemy);
-      if (d2 < 380 * 380) { const lead = Math.atan2(b.enemy.y - b.y, b.enemy.x - b.x); b.ang += ((lead - b.ang + Math.PI * 3) % (Math.PI * 2) - Math.PI) * Math.min(1, dt * 5); if (Math.random() < dt * 2.2) this.tryFire(b); }
+      if (d2 < 380 * 380 && this.phase !== 'drop') { const lead = Math.atan2(b.enemy.y - b.y, b.enemy.x - b.x); b.ang += ((lead - b.ang + Math.PI * 3) % (Math.PI * 2) - Math.PI) * Math.min(1, dt * 5); if (Math.random() < dt * 2.2) this.tryFire(b); }
     }
   }
   hostEnd(win) {

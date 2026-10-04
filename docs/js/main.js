@@ -140,7 +140,7 @@ function viewRanks() {
   <p class="center muted">Exam readiness = mastery × exam weighting. Predicted exam score ≈ <b>${store.predictedScore()}%</b>. ${r >= br ? 'You are ahead of your bot — keep the gap!' : 'Your bot is ahead — it studies at a typical pace, so beat it!'}</p>
   <h3 class="sec">Leaderboard</h3><div class="lb">${lb.map((p, i) => `<div class="lbrow ${p.me ? 'me' : ''} ${p.bot ? 'bot' : ''}"><span class="pos">${i + 1}</span><span class="nm">${esc(p.name)}${p.me ? ' (you)' : ''}</span><span class="rk">${p.rank}</span><b>${p.readiness}%</b></div>`).join('')}</div>
   <p class="muted small">Friends appear here after you play together (scores sync over the connection).</p>
-  <h3 class="sec">Module mastery</h3><div class="modbars">${MODULES.map(m => `<div class="mb"><span>${m.short}</span><div class="bars"><div class="bar me" style="--c:${m.color}"><i style="width:${pct(store.moduleMastery(m.id))}%"></i></div><div class="bar bot"><i style="width:${pct(store.moduleMastery(m.id, 'bot'))}%"></i></div></div><em>${m.weight}%</em></div>`).join('')}</div>
+  <h3 class="sec">Module mastery</h3><div class="modbars">${MODULES.map(m => `<div class="mb"><span>${m.short}</span><div class="bars"><div class="bar me" style="--c:${m.color}"><i style="width:${pct(store.moduleMastery(m.id))}%"></i></div><div class="bar bot"><i style="width:${pct(store.moduleMastery(m.id, 'bot'))}%"></i></div></div><em>${pct(store.moduleMastery(m.id))}%</em></div>`).join('')}</div><p class="muted small">Coloured bar = you · purple bar = 🤖 bot.</p>
   <h3 class="sec">Weakest topics → practise next</h3><div class="weak">${store.weakestLOs(6).map(lo => `<button class="chip" data-mod="${lo.split('.')[0]}">${lo} ${esc(loName(lo))} · ${pct(store.loMastery(lo))}%</button>`).join('')}</div>
   <h3 class="sec">Activity (last 8 weeks)</h3><div class="heat">${cells.join('')}</div>
   <h3 class="sec">Ranks</h3><div class="ranks">${store.RANKS.map(k => `<span class="${r >= k.min ? 'got' : ''}">${k.icon} ${k.name} <small>${k.min}%+</small></span>`).join('')}</div>`;
@@ -237,6 +237,7 @@ function bind(root) {
     };
     root.querySelectorAll('[data-mp]').forEach(b => b.onclick = () => { const mode = b.dataset.mp; net.startGame(mode, {}); app.play(mode, { online: true, host: true }); });
     if (net.status().connected) showConnected();
+    else if ($('jc').value) setTimeout(() => $('join').click(), 300); // opened from an invite link → join automatically
   }
 }
 
