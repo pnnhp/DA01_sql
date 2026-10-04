@@ -29,6 +29,14 @@ Every question in the app belongs to the lesson that teaches it: the 260 concept
 - **Final Boss:** the mock exam always uses the whole syllabus, like the real exam.
 - **Checking it:** `node tools/check_coverage.mjs` confirms that every question maps to a lesson and that each correct answer's key words appear in that lesson's slides.
 
+## 🎬 Fix-it Reels (mistake memory)
+- **The app remembers your mistakes.** Every question you get wrong in a game, lesson check or mock exam is saved on your device, along with how many times you missed it and what you picked.
+- **Short videos for your weak spots.** The **Fix** tab turns your worst topics into a TikTok-style feed: swipe-up reels with animated captions and an optional voice-over.
+- **What the reels show:** each one replays a question you got wrong ("You picked X ❌ → ✅ Y"), followed by the lesson slides that explain it.
+- **A re-test after watching.** It asks the same questions again, with new numbers for calculations, plus one similar question per topic.
+- **How a mistake gets fixed.** It counts as fixed once you get it right **2 times in a row**. The results say *Fixed ✅*, *Getting there 💪* or *Still tricky 🤔*, with buttons to re-watch the reels or redo the full lesson.
+- **Where to find it:** after any game, **🎬 Fix these mistakes** jumps straight to the reels for what you just got wrong.
+
 ## What's inside
 | Mode | Module | Style |
 |---|---|---|

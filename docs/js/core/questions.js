@@ -28,6 +28,9 @@ function prep(raw, lesson) {
   return { id: ++uid, lo: raw.lo, mod: raw.lo ? loModule(raw.lo) : 0, q: raw.q, opts: order.map(i => raw.opts[i]), a: order.indexOf(0), ex: raw.ex, gen: !!raw.gen, key: raw.key, lesson: les, lessonTitle: les && lessonById(les) ? lessonById(les).title : '' };
 }
 
+// A fresh calculation (new numbers every time); its memory key is the calculation type.
+const genQ = (name, lesson) => prep({ ...GEN[name](), key: 'g:' + name }, lesson || GEN_LESSON[name]);
+
 function weightedPick(items, wfn) {
   const ws = items.map(wfn); const tot = ws.reduce((a, b) => a + b, 0);
   let r = Math.random() * tot;
@@ -70,7 +73,7 @@ export function nextQuestion(opts = {}) {
   const L = weightedPick(pool, x => (mods ? 1 : Math.sqrt(modW(x.mod)) / Math.sqrt(per[x.mod])) * weakness(x.lo));
   const set = BY_LESSON[L.id];
   const useCalc = set.gens.length && (kind === 'calc' || (kind === 'any' && (!set.concepts.length || Math.random() < 0.45)));
-  if (useCalc) return prep(GEN[set.gens[Math.floor(Math.random() * set.gens.length)]](), L.id);
+  if (useCalc) return genQ(set.gens[Math.floor(Math.random() * set.gens.length)], L.id);
   let idx = set.concepts.filter(c => !recent.includes(c.key));
   if (opts.maxOpt) { const short = idx.filter(c => c.opts.every(o => o.length <= opts.maxOpt)); if (short.length) idx = short; }
   if (!idx.length) idx = set.concepts;
@@ -87,7 +90,7 @@ export function questionFor(genName) {
     if (ok.length) return nextQuestion({ lessons: ok.map(x => x.id), kind: 'calc' });
     return nextQuestion({ mods: [L.mod], kind: 'concept', maxOpt: 24 });
   }
-  return prep(GEN[genName](), lesson);
+  return genQ(genName, lesson);
 }
 
 // Sorting items for lane / slicing / drop games (only sets from finished lessons, if any).
@@ -118,8 +121,39 @@ export function lessonQuiz(id, n = 5) {
   const own = (L.check || []).map(([q, opts, ex], k) => ({ lo: L.lo, q, opts, ex, key: `L${id}.${k}` }));
   const extra = shuffle(set.concepts.filter(c => !own.some(o => o.q === c.q)));
   const out = shuffle(own).slice(0, Math.min(2, own.length)).map(c => prep(c, id));
-  if (set.gens.length) out.push(prep(GEN[set.gens[Math.floor(Math.random() * set.gens.length)]](), id));
+  if (set.gens.length) out.push(genQ(set.gens[Math.floor(Math.random() * set.gens.length)], id));
   for (const c of extra) { if (out.length >= n) break; out.push(prep(c, id)); }
   for (const c of own) { if (out.length >= n) break; if (!out.some(o => o.q === c.q)) out.push(prep(c, id)); }
   return shuffle(out);
+}
+
+// ── Mistake re-tests
+// Rebuild a question from its memory key (calculations come back with NEW numbers).
+export function questionByKey(key, fallbackLesson) {
+  if (key.startsWith('g:')) { const g = key.slice(2); if (GEN[g]) return genQ(g); }
+  if (key.startsWith('sort:')) {
+    const label = key.slice(5);
+    for (const s of SORTS) {
+      const it = s.items.find(x => x[0] === label); if (!it) continue;
+      let cats = s.cats.map((c, i) => i).filter(i => i !== it[1]); cats = [it[1], ...shuffle(cats).slice(0, 3)];
+      return prep({ lo: s.lo, q: `${s.title}: where does "${label}" belong?`, opts: cats.map(i => s.cats[i]), ex: `${it[2] || ''} → ${s.cats[it[1]]}`.replace(/^ → /, ''), key }, s.lesson);
+    }
+  }
+  for (const set of Object.values(BY_LESSON)) { const c = set.concepts.find(x => x.key === key); if (c) return prep(c, c.lesson); }
+  return fallbackLesson ? nextQuestion({ lessons: [fallbackLesson] }) : null;
+}
+// Sort-game items carry their lesson so mistakes can be remembered.
+export function sortItemLesson(label) { const s = SORTS.find(x => x.items.some(i => i[0] === label)); return s ? s.lesson : null; }
+
+// A short re-test: the questions you missed (fresh numbers for calculations) plus a "cousin" from the same lesson.
+export function retestFor(topics, max = 8) {
+  const out = [], seen = new Set();
+  const per = Math.max(2, Math.ceil(max / Math.max(1, topics.length)));
+  for (const t of topics) {
+    const items = [...t.items].sort((a, b) => b.wrong - a.wrong).slice(0, per - 1);
+    for (const m of items) { const q = questionByKey(m.key, t.lesson); if (q && !seen.has(q.q)) { seen.add(q.q); q.retestOf = m.key; out.push(q); } }
+    for (let k = 0; k < 6; k++) { const q = nextQuestion({ lessons: [t.lesson], all: true }); if (!seen.has(q.q) && !t.items.some(m => m.key === q.key)) { seen.add(q.q); out.push(q); break; } }
+    if (out.length >= max) break;
+  }
+  return shuffle(out.slice(0, max));
 }

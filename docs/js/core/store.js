@@ -26,6 +26,8 @@ function blank() {
     best: {},
     friends: [],       // {id, name, readiness, xp, rank, updated}
     seenCards: {},
+    mistakes: {},      // question key -> { key, lesson, lo, q, ans, ex, picked, wrong, right, streak, last, first }
+    retests: [],       // { at, lessons, score, total }
   };
 }
 
@@ -33,7 +35,7 @@ let S = load();
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { const b = blank(), o = JSON.parse(raw); const out = Object.assign(b, o); out.settings = Object.assign(blank().settings, o.settings || {}); out.lessons = o.lessons || {}; return out; }
+    if (raw) { const b = blank(), o = JSON.parse(raw); const out = Object.assign(b, o); out.settings = Object.assign(blank().settings, o.settings || {}); out.lessons = o.lessons || {}; out.mistakes = o.mistakes || {}; out.retests = o.retests || []; return out; }
   } catch (e) { /* storage unavailable */ }
   return blank();
 }
@@ -145,4 +147,33 @@ export function markLesson(id, score, total) {
   if (first) addXP(40); else save();
   return first;
 }
+// ── Mistake memory: remembers every question you get wrong until you get it right twice in a row.
+export const FIXED_AFTER = 2;
+export function remember(q, ok, picked) {
+  if (!q || !q.key || !q.lesson) return;
+  const m = S.mistakes[q.key];
+  if (!ok) {
+    const e = m || (S.mistakes[q.key] = { key: q.key, lesson: q.lesson, lo: q.lo, wrong: 0, right: 0, streak: 0, first: Date.now() });
+    Object.assign(e, { q: q.q, ans: q.opts[q.a], ex: q.ex || '', picked: picked != null && picked >= 0 ? q.opts[picked] : '', lesson: q.lesson, lo: q.lo });
+    e.wrong++; e.streak = 0; e.last = Date.now(); e.fixedAt = 0;
+  } else if (m) {
+    m.right++; m.streak++; m.last = Date.now(); if (m.streak >= FIXED_AFTER && !m.fixedAt) m.fixedAt = Date.now();
+  }
+  save();
+}
+export const mistakeStatus = m => m.streak >= FIXED_AFTER ? 'fixed' : m.streak > 0 ? 'improving' : 'shaky';
+export function activeMistakes(lesson) { return Object.values(S.mistakes).filter(m => mistakeStatus(m) !== 'fixed' && (!lesson || m.lesson === lesson)); }
+// Lessons you keep getting wrong, worst first: [{ lesson, items, score, wrong }]
+export function weakTopics(k = 50) {
+  const by = {};
+  for (const m of activeMistakes()) {
+    const t = by[m.lesson] || (by[m.lesson] = { lesson: m.lesson, items: [], score: 0, wrong: 0 });
+    const ageDays = (Date.now() - (m.last || 0)) / DAY;
+    t.items.push(m); t.wrong += m.wrong; t.score += m.wrong * (m.streak ? 0.5 : 1) * (1 + 1 / (1 + ageDays));
+  }
+  return Object.values(by).sort((a, b) => b.score - a.score).slice(0, k);
+}
+export function fixedCount() { return Object.values(S.mistakes).filter(m => mistakeStatus(m) === 'fixed').length; }
+export function logRetest(entry) { S.retests.unshift({ at: Date.now(), ...entry }); S.retests = S.retests.slice(0, 60); save(); }
+
 export { BOT_LEVELS, loModule };

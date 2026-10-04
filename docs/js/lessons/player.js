@@ -5,29 +5,9 @@ import { sfx, unlock } from '../core/audio.js';
 import { esc, LETTERS } from '../core/engine.js';
 import { lessonQuiz } from '../core/questions.js';
 import { MODULES } from '../content/syllabus.js';
+import { speak, speakable, hush } from '../core/speech.js';
 
 const GAME_NAMES = { ninja: '🥷 Info Ninja', runner: '🏃 Cost Runner', factory: '🏭 Overhead Factory', strike: '🚀 Variance Strike', tycoon: '🏢 Division Tycoon', rush: '⚙️ Factory Rush', warehouse: '📦 Warehouse Panic' };
-
-// ── text-to-speech
-function speakable(html) {
-  const div = document.createElement('div'); div.innerHTML = html;
-  return div.textContent.replace(/×/g, ' times ').replace(/÷/g, ' divided by ').replace(/−/g, ' minus ').replace(/→/g, ', then, ').replace(/≈/g, ' about ')
-    .replace(/%/g, ' percent ').replace(/\be\.g\./g, 'for example').replace(/&/g, ' and ').replace(/\bFOH\b/g, 'fixed overhead').replace(/\bVC\b/g, 'variable cost')
-    .replace(/\bBEP\b/g, 'break-even point').replace(/\bMoS\b/g, 'margin of safety').replace(/\bOAR\b/g, 'O A R').replace(/[⚠️🐷💰🍋]/gu, '').replace(/\s+/g, ' ').trim();
-}
-let voice = null;
-function pickVoice() {
-  if (!('speechSynthesis' in window)) return null;
-  const vs = speechSynthesis.getVoices();
-  return vs.find(v => /en-AU/i.test(v.lang)) || vs.find(v => /en-GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
-}
-if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => { voice = pickVoice(); };
-function speak(text, onend) {
-  if (!('speechSynthesis' in window)) { alert('Sorry, this browser can\'t read aloud.'); return; }
-  speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); voice = voice || pickVoice(); if (voice) u.voice = voice;
-  u.rate = 0.95; u.pitch = 1.05; u.onend = onend; speechSynthesis.speak(u);
-}
-const hush = () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); };
 
 export function playLesson(app, id) {
   const L = lessonById(id); if (!L) return app.go('learn');
@@ -79,7 +59,7 @@ export function playLesson(app, id) {
       if (root.querySelector('.opt.good')) return; const k = +b.dataset.k, ok = k === q.a;
       root.querySelectorAll('.opt').forEach((x, j) => { if (j === q.a) x.classList.add('good'); else if (j === k) x.classList.add('bad'); });
       if (ok) right++; sfx(ok ? 'correct' : 'wrong');
-      if (q.lo) store.record(q.lo, ok);
+      if (q.lo) store.record(q.lo, ok); store.remember(q, ok, k);
       root.querySelector('#fb').innerHTML = `<div class="lz-fb ${ok ? 'ok' : 'no'}">${ok ? '🎉 Correct!' : '🙈 Not quite.'} ${esc(q.ex)}</div>`;
       const n = root.querySelector('#next'); n.disabled = false; n.onclick = () => { hush(); qi++; quiz(); };
     });

@@ -6,6 +6,7 @@ import { esc } from './core/engine.js';
 import { net } from './core/net.js';
 import { LESSONS, lessonById, lessonsForModule, dueLessons, lessonSchedule, iso } from './lessons/index.js';
 import { playLesson } from './lessons/player.js';
+import { playReels, retest } from './reels/reels.js';
 
 const S = store.state;
 export const GAMES = {
@@ -50,6 +51,7 @@ const app = {
     this.el.querySelector('#gb').onclick = () => this.go('map');
     return true;
   },
+  reels(opts = {}) { if (this.current) { try { this.current.stop(); } catch (e) { /* ignore */ } this.current = null; } unlock(); sfx('click'); this.screen = 'reels'; playReels(this, opts); },
   lesson(id) { if (this.current) { try { this.current.stop(); } catch (e) { /* ignore */ } this.current = null; } unlock(); sfx('click'); playLesson(this, id); },
   go(screen, arg) {
     if (this.current) { try { this.current.stop(); } catch (e) { /* ignore */ } this.current = null; }
@@ -84,7 +86,7 @@ function render(screen, arg) {
   const root = app.el;
   if (!S().profile.name) return renderWelcome();
   music(screen === 'map' ? 'menu' : 'calm');
-  const views = { map: viewMap, arcade: viewArcade, ranks: viewRanks, plan: viewLearn, learn: viewLearn, settings: viewSettings, lobby: viewLobby, module: viewModule };
+  const views = { map: viewMap, arcade: viewArcade, ranks: viewRanks, plan: viewLearn, learn: viewLearn, settings: viewSettings, lobby: viewLobby, module: viewModule, fix: viewFix };
   root.innerHTML = `<div class="screen">${header()}<main>${(views[screen] || viewMap)(arg)}</main></div>`;
   bind(root);
 }
@@ -133,7 +135,7 @@ function viewMap() {
       <div class="nds">${GAMES[g].emoji} ${GAMES[g].title} · ${mm.weight}% of exam</div>
       <div class="ndb"><span>You ${pct(v)}%</span><span>🤖 ${pct(bv)}%</span></div></div></button>`;
   }).join('<div class="path"></div>');
-  return `${todayClass(true)}<section class="mission" style="--mc:${m.color}"><div class="mtag">🎮 THEN PLAY</div>
+  return `${todayClass(true)}${fixCard()}<section class="mission" style="--mc:${m.color}"><div class="mtag">🎮 THEN PLAY</div>
       <h3>${tm.cur.mod ? `${m.short}: ${m.name}` : 'Revision sprint'} </h3><p>Plan: ~${tm.cur.hoursPerDay} h/day. Weak spots: ${tm.weak.map(lo => `<b>${lo}</b>`).join(', ')}</p>
       <div class="row"><button class="btn" data-play="${tm.gid}">${GAMES[tm.gid].emoji} Play ${GAMES[tm.gid].title}</button><button class="btn ghost" data-play="royale">🪂 Quick Royale</button></div></section>
     <section class="specials">
@@ -180,6 +182,32 @@ function viewRanks() {
   <h3 class="sec">Ranks</h3><div class="ranks">${store.RANKS.map(k => `<span class="${r >= k.min ? 'got' : ''}">${k.icon} ${k.name} <small>${k.min}%+</small></span>`).join('')}</div>`;
 }
 
+// ───────── Fix-it: mistake memory → reels → re-test
+function fixCard() {
+  const t = store.weakTopics(); if (!t.length) return '';
+  const n = t.reduce((a, x) => a + x.items.length, 0);
+  return `<section class="fixcard"><div class="mtag">🎬 FIX-IT REELS · ${n} WEAK SPOT${n > 1 ? 'S' : ''}</div>
+    <h3>You keep missing these:</h3><ul>${t.slice(0, 3).map(x => `<li><b>${esc(lessonById(x.lesson).title)}</b> <i>×${x.wrong}</i></li>`).join('')}</ul>
+    <div class="row"><button class="btn" data-reels>▶ Watch & re-test</button><button class="btn ghost" data-go="fix">My mistake memory</button></div></section>`;
+}
+function viewFix() {
+  const s = S(), topics = store.weakTopics(), all = Object.values(s.mistakes || {});
+  const fixed = all.filter(m => store.mistakeStatus(m) === 'fixed').sort((a, b) => b.fixedAt - a.fixedAt);
+  const chip = m => ({ shaky: '<span class="mchip shaky">😬 shaky</span>', improving: '<span class="mchip imp">💪 1 more right</span>', fixed: '<span class="mchip ok">✅ fixed</span>' })[store.mistakeStatus(m)];
+  const ago = t => { const d = Math.floor((Date.now() - t) / 86400000); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; };
+  const last = (s.retests || [])[0];
+  return `<section class="panel fixhead"><h2>🎬 Fix-it: your mistake memory</h2>
+    <p>Every question you get wrong is remembered here. Watch the <b>Fix-it Reels</b> (short videos made from the lesson that teaches it), then take a <b>re-test</b>. A mistake counts as fixed once you get it right <b>${store.FIXED_AFTER} times in a row</b>.</p>
+    <div class="stats"><div><b>${topics.reduce((a, t) => a + t.items.length, 0)}</b><span>to fix</span></div><div><b>${topics.length}</b><span>topics</span></div><div><b>${fixed.length}</b><span>fixed</span></div><div><b>${last ? last.score + '/' + last.total : '–'}</b><span>last re-test</span></div></div>
+    ${topics.length ? `<div class="row"><button class="btn big" data-reels>▶ Watch my reels</button><button class="btn ghost" id="rtonly">🎯 Re-test only</button></div>` : '<p class="muted">Nothing to fix yet. Play games or lessons and your mistakes will show up here. 🌟</p>'}</section>
+  ${topics.map(t => { const L = lessonById(t.lesson), m = MODULES.find(x => x.id === L.mod) || { color: '#ffd23f', short: '' };
+    return `<details class="course fixtopic" style="--mc:${m.color}"><summary><b>${m.short} · ${esc(L.title)}</b><span>${t.items.length} to fix</span></summary>
+      ${t.items.map(it => `<div class="mrow"><div>${chip(it)} <i>missed ×${it.wrong} · last ${ago(it.last)}</i></div><b>${esc(it.q)}</b><div class="ok">✔ ${esc(it.ans)}</div>${it.picked ? `<div class="no">✘ you said: ${esc(it.picked)}</div>` : ''}</div>`).join('')}
+      <div class="row"><button class="btn small" data-reels="${t.lesson}">🎬 Reels for this</button><button class="btn ghost small" data-lesson="${t.lesson}">📖 Full lesson</button></div></details>`; }).join('')}
+  ${fixed.length ? `<h3 class="sec">✅ Recently fixed</h3><div class="panel">${fixed.slice(0, 12).map(m => `<div class="mrow"><div>${chip(m)} <i>${esc((lessonById(m.lesson) || {}).title || '')}</i></div><b>${esc(m.q)}</b></div>`).join('')}</div>` : ''}
+  ${(s.retests || []).length ? `<h3 class="sec">🎯 Re-test history</h3><div class="panel">${s.retests.slice(0, 8).map(r => `<div class="mrow"><b>${r.score}/${r.total}</b> <i>${new Date(r.at).toLocaleDateString()} · ${r.lessons.map(id => esc((lessonById(id) || {}).title || id)).join(', ')}</i></div>`).join('')}</div>` : ''}`;
+}
+
 function viewLearn() {
   const s = S(); const { items, plan } = lessonSchedule(s.settings.examDate, s.settings.planStart);
   const now = new Date(); const total = LESSONS.length, done = LESSONS.filter(l => store.lessonDone(l.id)).length;
@@ -190,7 +218,7 @@ function viewLearn() {
       <div class="lrows">${ls.map(L => { const it = items.find(x => x.id === L.id); const dn = store.lessonDone(L.id); const late = !dn && it && it.date < todayIso;
         return `<button class="lrow ${dn ? 'done' : ''} ${late ? 'late' : ''}" data-lesson="${L.id}" style="--mc:${m.color}"><span class="lck">${dn ? '✅' : late ? '⏰' : '📖'}</span><span class="lt"><b>${esc(L.title)}</b><i>${it ? 'Day ' + it.day + ' · ' + new Date(it.date).toLocaleDateString() : ''} · ~${L.mins} min</i></span><span class="lgo">▶</span></button>`; }).join('')}</div></details>`;
   }).join('');
-  return `${todayClass(false)}
+  return `${todayClass(false)}${fixCard()}
   <section class="panel"><h2>📈 Course progress</h2><div class="bar me" style="height:12px"><i style="width:${Math.round(done / total * 100)}%"></i></div><p class="muted">${done} of ${total} lessons done. Each lesson is 5–14 minutes: slides, tap-to-reveal examples, 🔊 read-aloud and a 5-question check (with fresh calculations).</p></section>
   <h3 class="sec">All lessons</h3>${course}
   <section class="panel"><h2>📅 Exam date & plan</h2><label class="row">Exam on <input type="date" id="exd" value="${s.settings.examDate}"></label>
@@ -243,6 +271,8 @@ function viewLobby(code) {
 // ───────── events
 function bind(root) {
   root.querySelectorAll('[data-play]').forEach(b => b.onclick = () => app.play(b.dataset.play));
+  root.querySelectorAll('[data-reels]').forEach(b => b.onclick = () => app.reels(b.dataset.reels ? { lessons: [b.dataset.reels] } : {}));
+  if (root.querySelector('#rtonly')) root.querySelector('#rtonly').onclick = () => { unlock(); retest(app, store.weakTopics().slice(0, 3)); };
   root.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { sfx('click'); app.go(b.dataset.go); });
   root.querySelectorAll('[data-mod]').forEach(b => b.onclick = () => { sfx('click'); app.go('module', b.dataset.mod); });
   root.querySelectorAll('[data-royale]').forEach(b => b.onclick = () => app.play('royale', { mods: [+b.dataset.royale] }));
@@ -296,7 +326,7 @@ function pendingJoin() { const m = location.hash.match(/join=([A-Z0-9]+)/i); ret
 function boot() {
   app.el = document.getElementById('app');
   const tabs = document.createElement('nav'); tabs.className = 'tabbar';
-  tabs.innerHTML = [['map', '🗺', 'Map'], ['arcade', '🎮', 'Play'], ['ranks', '🏆', 'Ranks'], ['learn', '📚', 'Learn'], ['settings', '⚙️', 'More']]
+  tabs.innerHTML = [['map', '🗺', 'Map'], ['arcade', '🎮', 'Play'], ['ranks', '🏆', 'Ranks'], ['learn', '📚', 'Learn'], ['fix', '🎬', 'Fix'], ['settings', '⚙️', 'More']]
     .map(([s, i, l]) => `<button data-s="${s}"><span>${i}</span>${l}</button>`).join('');
   document.body.appendChild(tabs);
   tabs.onclick = e => { const b = e.target.closest('button'); if (b) { unlock(); sfx('click'); app.go(b.dataset.s); } };

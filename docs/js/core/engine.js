@@ -1,6 +1,8 @@
 // Shared game runtime: canvas loop, input (touch/mouse/keyboard), particles, HUD, answers, results.
 import { sfx, music, vibrate, unlock } from './audio.js';
-import { record, addXP, logGame, state, readiness } from './store.js';
+import { record, addXP, logGame, state, readiness, remember } from './store.js';
+import { sortItemLesson } from './questions.js';
+import { lessonById } from '../lessons/index.js';
 import { CARDS, modById } from '../content/syllabus.js';
 
 export const rand = (a, b) => a + Math.random() * (b - a);
@@ -115,7 +117,7 @@ export class Game {
   answer(q, idx, opts = {}) {
     const ok = idx === q.a;
     if (opts.norecord) { if (!opts.silent) sfx(ok ? 'correct' : 'wrong'); if (!ok && !opts.noExplain) this.explain(q); return ok; }
-    const botOk = record(q.lo, ok);
+    const botOk = record(q.lo, ok); remember(q, ok, idx);
     this.answers.push({ q, idx, ok, botOk });
     if (ok) { this.combo++; this.bestCombo = Math.max(this.bestCombo, this.combo); if (!opts.silent) sfx('correct'); }
     else { this.combo = 0; if (!opts.silent) { sfx('wrong'); vibrate(60); } if (!opts.noExplain) this.explain(q); }
@@ -123,8 +125,9 @@ export class Game {
   }
   // record a sorting decision (item with lo + correct bool)
   answerSort(lo, label, ok, why, correctLabel) {
-    const q = { lo, q: `Classify: "${label}"`, opts: [correctLabel], a: 0, ex: why || `Correct category: ${correctLabel}.` };
-    const botOk = record(lo, ok);
+    const lesson = sortItemLesson(label);
+    const q = { lo, q: `Classify: "${label}"`, opts: [correctLabel], a: 0, ex: why || `Correct category: ${correctLabel}.`, key: 'sort:' + label, lesson, lessonTitle: lesson && lessonById(lesson) ? lessonById(lesson).title : '' };
+    const botOk = record(lo, ok); remember(q, ok);
     this.answers.push({ q, idx: ok ? 0 : -1, ok, botOk, sort: true });
     if (ok) { this.combo++; this.bestCombo = Math.max(this.bestCombo, this.combo); } else { this.combo = 0; vibrate(50); }
     return ok;
@@ -196,6 +199,7 @@ export class Game {
     logGame({ game: this.constructor.id, score: Math.round(this.score), right, n, acc, win });
     sfx(win ? 'win' : 'lose'); music('calm');
     const wrong = this.answers.filter(a => !a.ok);
+    const fixLessons = [...new Set(wrong.map(a => a.q.lesson).filter(Boolean))];
     const s = state();
     const el = document.createElement('div'); el.className = 'overlay end-ov';
     el.innerHTML = `<div class="panel results">
@@ -204,10 +208,12 @@ export class Game {
       <div><b>+${xp}</b><span>XP</span></div><div><b>×${this.bestCombo}</b><span>best combo</span></div></div>
       <div class="vsbot ${acc >= botAcc ? 'ahead' : 'behind'}">🤖 ${esc(s.settings.botName)} studied the same ${n} questions and got <b>${botAcc}%</b> → you're <b>${acc >= botAcc ? 'ahead' : 'behind'}</b>. Readiness: <b>${readiness()}%</b> vs bot <b>${readiness('bot')}%</b></div>
       ${wrong.length ? `<details class="review" open><summary>Review ${wrong.length} mistake${wrong.length > 1 ? 's' : ''}</summary>${wrong.slice(0, 25).map(a => `<div class="rv"><div class="rv-q">${esc(a.q.q)}</div><div class="rv-a">✔ ${esc(a.q.opts[a.q.a])}</div><div class="rv-e">${esc(a.q.ex || '')}</div>${a.q.lesson && a.q.lessonTitle ? `<button class="rv-l" data-rev="${a.q.lesson}">📖 Revise: ${esc(a.q.lessonTitle)}</button>` : ''}</div>`).join('')}</details>` : (n ? '<p class="perfect">Flawless! ✨</p>' : '')}
+      ${fixLessons.length ? `<button class="btn big fixit" style="width:100%;margin:8px 0">🎬 Fix these mistakes: watch reels + re-test</button>` : ''}
       <div class="row"><button class="btn big again">↻ Play again</button><button class="btn ghost map">🗺 Map</button></div></div>`;
     this.stage.appendChild(el);
     el.querySelector('.again').onclick = () => { this.stop(); if (this.opts.online) this.app.go('lobby'); else this.app.play(this.constructor.id, { ...this.opts, skipCard: true }); };
     el.querySelector('.map').onclick = () => { this.stop(); this.app.go('map'); };
+    const fx = el.querySelector('.fixit'); if (fx) fx.onclick = () => { this.stop(); this.app.reels({ lessons: fixLessons }); };
     el.querySelectorAll('[data-rev]').forEach(b => b.onclick = () => { this.stop(); this.app.lesson(b.dataset.rev); });
   }
 
