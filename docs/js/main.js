@@ -10,6 +10,7 @@ import { playReels, retest } from './reels/reels.js';
 import { playBook, bookRows, bookCount, nextBookSet, bookQsForLesson } from './book/book.js';
 import { KIND } from './content/book/index.js';
 import { forecast, STATUS, fmtDate } from './core/forecast.js';
+import * as sync from './core/sync.js';
 import { READING, readingSections, sectionKey } from './content/reading.js';
 
 const S = store.state;
@@ -61,7 +62,7 @@ const app = {
   go(screen, arg) {
     if (this.current) { try { this.current.stop(); } catch (e) { /* ignore */ } this.current = null; }
     document.body.classList.remove('ingame');
-    this.screen = screen; render(screen, arg);
+    this.screen = screen; this.lastArg = arg; render(screen, arg);
     document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.s === (screen === 'plan' ? 'learn' : screen)));
     window.scrollTo(0, 0);
   },
@@ -78,12 +79,32 @@ const ring = (v, color, size = 64, label = '') => {
 };
 const daysTo = d => Math.max(0, Math.ceil((new Date(d) - new Date()) / 86400000));
 
+const TOKEN_URL = 'https://github.com/settings/tokens/new?scopes=gist&description=Cost%20Commando%20sync';
+const ago = t => { if (!t) return 'never'; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; };
+function syncChip() { const st = sync.status(); return st.on ? `<button class="chip syncchip ${st.error ? 'err' : ''}" data-go="settings" title="${st.error ? esc(st.error) : 'Synced ' + ago(st.last)}">☁️${st.error ? '⚠️' : '✓'}</button>` : ''; }
+function syncSetupHTML(compact) {
+  return `<ol class="syncsteps">
+    <li>Open <a href="${TOKEN_URL}" target="_blank" rel="noopener"><b>this GitHub page</b></a> (sign in to GitHub, the same account as your app).</li>
+    <li>"gist" is already ticked. Set <b>Expiration</b> to <b>No expiration</b> (or a date after your exam), then scroll down and tap <b>Generate token</b>.</li>
+    <li>Copy the token (it starts with <code>ghp_</code>) and paste it below. Do the same on your other device with the <b>same token</b>.</li></ol>
+    <div class="row"><input id="synctok" type="password" placeholder="ghp_…" autocomplete="off" spellcheck="false"><button class="btn" id="syncgo">Connect</button></div>
+    <p class="muted small" id="syncmsg">${compact ? '' : 'Your progress is stored in a private (secret) gist in your GitHub account. The token stays on this device and can only touch gists. Progress from both devices is merged, never overwritten.'}</p>`;
+}
+function bindSyncSetup(root, after) {
+  const go = root.querySelector('#syncgo'); if (!go) return;
+  go.onclick = async () => {
+    const msg = root.querySelector('#syncmsg'); go.disabled = true; msg.textContent = '⏳ Connecting to GitHub…';
+    try { const r = await sync.connect(root.querySelector('#synctok').value); if (r && r.error) throw new Error(r.error); msg.textContent = '✅ Connected and synced!'; sfx('power'); setTimeout(after, 600); }
+    catch (e) { msg.textContent = '⚠️ ' + e.message; go.disabled = false; }
+  };
+}
+
 function header() {
   const s = S(), r = store.readiness(), rk = store.rankFor(r), lv = store.level();
   return `<header class="top">
     <div class="who"><div class="avatar">${rk.icon}</div><div><div class="nm">${esc(s.profile.name || 'Player')}</div><div class="rk">${rk.name} · Lv ${lv}</div>
       <div class="xpbar"><i style="width:${pct(store.levelProgress())}%"></i></div></div></div>
-    <div class="chips"><span class="chip">🔥 ${s.streak.days}d</span><span class="chip">📅 ${daysTo(s.settings.examDate)}d to exam</span><span class="chip">🪙 ${s.coins}</span></div>
+    <div class="chips"><span class="chip">🔥 ${s.streak.days}d</span><span class="chip">📅 ${daysTo(s.settings.examDate)}d to exam</span><span class="chip">🪙 ${s.coins}</span>${syncChip()}</div>
   </header>`;
 }
 
@@ -101,7 +122,9 @@ function renderWelcome() {
     <div class="logo">COST<span>COMMANDO</span></div><p>Management Accounting exam prep, played as action games.<br>CPA Australia Foundation · 7 modules · 2 multiplayer modes.</p>
     <label>Your player name<input id="nm" maxlength="18" placeholder="e.g. Phuong" autocomplete="off"></label>
     <label>Name your rival bot (it starts knowing nothing, just like you)<input id="bn" maxlength="14" value="Ghost"></label>
-    <button class="btn big" id="startbtn">Start the mission ▶</button></div></div>`;
+    <button class="btn big" id="startbtn">Start the mission ▶</button>
+    <details class="syncwelcome"><summary>☁️ Already using the app on another device? Sync it here</summary>${syncSetupHTML(true)}</details></div></div>`;
+  bindSyncSetup(app.el, () => app.go(S().profile.name ? 'map' : 'map'));
   app.el.querySelector('#startbtn').onclick = () => {
     unlock(); const n = app.el.querySelector('#nm').value.trim();
     if (!n) { app.el.querySelector('#nm').focus(); return; }
@@ -336,7 +359,13 @@ function viewLearn() {
 
 function viewSettings() {
   const s = S();
-  return `<section class="panel"><h2>⚙️ Settings</h2>
+  const st = sync.status();
+  return `<section class="panel syncpanel"><h2>☁️ Sync my devices</h2>
+    ${st.on ? `<p>✅ Syncing with GitHub <b>@${esc(st.login)}</b>. Last synced <b>${ago(st.last)}</b>.${st.error ? `<br><span class="err">⚠️ ${esc(st.error)}</span>` : ''}</p>
+      <p class="muted small">Syncs automatically when you open the app, every few minutes, and shortly after you study. To add another device, connect it with the same token.</p>
+      <div class="row"><button class="btn" id="syncnow">↻ Sync now</button><button class="btn ghost" id="syncoff">Disconnect this device</button></div>`
+    : `<p>Your phone and laptop keep separate progress until you connect them. Connect each device once (about 2 minutes):</p>${syncSetupHTML(false)}`}</section>
+  <section class="panel"><h2>⚙️ Settings</h2>
     <label class="row">Player name <input id="pn" value="${esc(s.profile.name)}" maxlength="18"></label>
     <label class="row">Bot name <input id="bn" value="${esc(s.settings.botName)}" maxlength="14"></label>
     <label class="row">Bot learning speed <select id="bl">${Object.entries(store.BOT_LEVELS).map(([k, v]) => `<option value="${k}" ${s.settings.botLevel === k ? 'selected' : ''}>${v.label}</option>`).join('')}</select></label>
@@ -375,6 +404,9 @@ function viewLobby(code) {
 // ───────── events
 function bind(root) {
   root.querySelectorAll('[data-play]').forEach(b => b.onclick = () => app.play(b.dataset.play));
+  bindSyncSetup(root, () => app.go('settings'));
+  if (root.querySelector('#syncnow')) root.querySelector('#syncnow').onclick = async e => { e.target.disabled = true; e.target.textContent = '⏳ Syncing…'; await sync.syncNow('button'); app.go('settings'); };
+  if (root.querySelector('#syncoff')) root.querySelector('#syncoff').onclick = () => { if (confirm('Stop syncing this device? Your progress stays here; nothing is deleted.')) { sync.disconnect(); app.go('settings'); } };
   root.querySelectorAll('[data-read]').forEach(b => b.onclick = () => { const on = store.toggleSection(b.dataset.read); sfx(on ? 'coin' : 'click'); root.querySelectorAll(`[data-read="${b.dataset.read}"]`).forEach(x => { x.classList.toggle('done', on); x.querySelector('.lck').textContent = on ? '✅' : '⬜'; }); const fc = root.querySelector('.forecast'); if (fc) fc.outerHTML = forecastPanel(); });
   root.querySelectorAll('[data-book]').forEach(b => b.onclick = e => { e.stopPropagation(); app.book({ set: b.dataset.book }); });
   root.querySelectorAll('[data-bookrand]').forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); app.book({ mod: +b.dataset.bookrand || undefined, random: 10 }); });
@@ -429,6 +461,8 @@ function bind(root) {
 
 function pendingJoin() { const m = location.hash.match(/join=([A-Z0-9]+)/i); return m ? m[1].toUpperCase() : null; }
 
+function toast(text) { const t = document.createElement('div'); t.className = 'apptoast'; t.textContent = text; document.body.appendChild(t); setTimeout(() => t.remove(), 3200); }
+
 // ───────── boot
 function boot() {
   app.el = document.getElementById('app');
@@ -441,6 +475,11 @@ function boot() {
   const j = pendingJoin();
   if (j) { app.go(S().profile.name ? 'lobby' : 'map', j); }
   else app.go('map');
+  sync.startAutoSync(() => {
+    // the other device had new progress: refresh the screen (not mid-game / mid-lesson)
+    if (!app.current && ['map', 'arcade', 'ranks', 'learn', 'fix', 'book', 'module', 'settings'].includes(app.screen)) { const y = window.scrollY; app.go(app.screen, app.lastArg); window.scrollTo(0, y); }
+    toast('☁️ Synced progress from your other device');
+  });
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 boot();

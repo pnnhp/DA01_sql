@@ -38,18 +38,67 @@ let S = load();
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { const b = blank(), o = JSON.parse(raw); const out = Object.assign(b, o); out.settings = Object.assign(blank().settings, o.settings || {}); out.lessons = o.lessons || {}; out.mistakes = o.mistakes || {}; out.retests = o.retests || []; out.book = o.book || {}; out.reading = o.reading || {}; out.forecasts = o.forecasts || {}; return out; }
+    if (raw) { const b = blank(), o = JSON.parse(raw); const out = Object.assign(b, o); out.settings = Object.assign(blank().settings, o.settings || {}); out.lessons = o.lessons || {}; out.mistakes = o.mistakes || {}; out.retests = o.retests || []; out.book = o.book || {}; out.reading = o.reading || {}; out.forecasts = o.forecasts || {};
+      if (!out.setAt) { out.setAt = {}; const d = blank().settings; for (const k of Object.keys(out.settings)) if (k !== 'planStart' && JSON.stringify(out.settings[k]) !== JSON.stringify(d[k])) out.setAt[k] = 1; }
+      return out; }
   } catch (e) { /* storage unavailable */ }
   return blank();
 }
-export function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }
+const listeners = [];
+let lastSettings = JSON.stringify(S.settings);
+export function onSave(fn) { listeners.push(fn); }
+export function save(quiet) {
+  const st = JSON.stringify(S.settings);
+  if (st !== lastSettings) { const prev = JSON.parse(lastSettings); S.setAt = S.setAt || {}; for (const k of Object.keys(S.settings)) if (JSON.stringify(S.settings[k]) !== JSON.stringify(prev[k])) S.setAt[k] = Date.now(); lastSettings = st; }
+  S.updatedAt = Date.now();
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ }
+  if (!quiet) listeners.forEach(f => { try { f(); } catch (e) { /* ignore */ } });
+}
+
+// ── Merge two saves (this device + another device) so nothing learned on either is lost.
+const later = (a, b, k) => ((b && b[k]) || 0) > ((a && a[k]) || 0) ? b : a;
+const mergeMap = (a = {}, b = {}, pick) => { const o = { ...a }; for (const k of Object.keys(b)) o[k] = k in a ? pick(a[k], b[k]) : b[k]; return o; };
+const unionBy = (a = [], b = [], key, max) => { const m = new Map(); for (const x of [...a, ...b]) m.set(key(x), x); return [...m.values()].sort((x, y) => (key(y) > key(x) ? 1 : -1)).slice(0, max); };
+export function mergeStates(a, b) {
+  if (!b || b.v !== 1) return a;
+  const o = Object.assign(blank(), a);
+  o.profile = { ...b.profile, ...a.profile, name: a.profile.name || b.profile.name || '', created: Math.min(a.profile.created || Date.now(), b.profile.created || Date.now()) };
+  // each setting: whichever device changed it most recently wins (untouched defaults never win)
+  const sa = a.setAt || {}, sb = b.setAt || {}; o.settings = { ...a.settings }; o.setAt = { ...sa };
+  for (const k of Object.keys(b.settings || {})) if ((sb[k] || 0) > (sa[k] || 0)) { o.settings[k] = b.settings[k]; o.setAt[k] = sb[k]; }
+  o.lessons = mergeMap(a.lessons, b.lessons, (x, y) => ({ ...later(x, y, 'last'), done: Math.min(x.done || Infinity, y.done || Infinity) }));
+  o.los = mergeMap(a.los, b.los, (x, y) => (y.n || 0) > (x.n || 0) ? y : x);
+  o.bot = { los: mergeMap(a.bot && a.bot.los, b.bot && b.bot.los, (x, y) => (y.n || 0) > (x.n || 0) ? y : x) };
+  o.mistakes = mergeMap(a.mistakes, b.mistakes, (x, y) => ({ ...later(x, y, 'last'), wrong: Math.max(x.wrong || 0, y.wrong || 0), right: Math.max(x.right || 0, y.right || 0), first: Math.min(x.first || Infinity, y.first || Infinity) }));
+  o.reading = mergeMap(a.reading, b.reading, (x, y) => Math.min(x, y));
+  o.book = mergeMap(a.book, b.book, (x, y) => ({ ...later(x, y, 'at'), best: Math.max(x.best || 0, y.best || 0), tries: Math.max(x.tries || 0, y.tries || 0) }));
+  o.days = mergeMap(a.days, b.days, (x, y) => Math.max(x, y));
+  o.forecasts = { ...b.forecasts, ...a.forecasts };
+  o.best = mergeMap(a.best, b.best, (x, y) => (typeof x === 'number' && typeof y === 'number') ? Math.max(x, y) : x);
+  o.seenCards = { ...b.seenCards, ...a.seenCards };
+  o.history = unionBy(a.history, b.history, x => x.t, 60);
+  o.retests = unionBy(a.retests, b.retests, x => x.at, 60);
+  o.friends = unionBy(a.friends, b.friends, x => x.id, 50);
+  o.xp = Math.max(a.xp || 0, b.xp || 0); o.coins = Math.max(a.coins || 0, b.coins || 0);
+  o.streak = (b.streak && b.streak.lastDay > (a.streak && a.streak.lastDay || '')) ? b.streak : a.streak;
+  o.updatedAt = Math.max(a.updatedAt || 0, b.updatedAt || 0);
+  return o;
+}
+// take in another device's progress (merged, never overwritten); returns true if anything changed
+export function adopt(other) {
+  const before = JSON.stringify({ ...S, updatedAt: 0 });
+  const merged = mergeStates(S, other);
+  const changed = JSON.stringify({ ...merged, updatedAt: 0 }) !== before;
+  if (changed) { S = merged; lastSettings = JSON.stringify(S.settings); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }
+  return changed;
+}
 export const state = () => S;
 export function reset() { S = blank(); save(); }
 export function exportCode() { return btoa(unescape(encodeURIComponent(JSON.stringify(S)))); }
 export function importCode(code) {
   const obj = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
   if (!obj || obj.v !== 1) throw new Error('Not a Cost Commando save code');
-  S = Object.assign(blank(), obj); save();
+  adopt(obj); save();
 }
 
 const today = () => localIso(new Date());

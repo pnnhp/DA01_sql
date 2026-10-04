@@ -325,3 +325,11 @@ details.scen table { border-collapse: collapse; font-size: 13px; display: block;
 .chipbtn { background: #ffffff14; border: 1px solid #ffffff2a; color: var(--txt); border-radius: 99px; padding: 4px 10px; margin: 3px 2px; font: inherit; font-size: 12px; cursor: pointer; }
 .fcmath summary { cursor: pointer; color: var(--muted); font-size: 13px; } .fcmath table { font-size: 13px; } .fcmath i { color: var(--muted); font-style: normal; font-size: 11px; }
 .readrow .lck { font-size: 18px; }
+
+/* ── Device sync */
+.syncpanel { border: 2px solid #3fd2ff66; } .syncpanel .err { color: #ff8fb0; }
+.syncsteps { padding-left: 20px; margin: 8px 0; } .syncsteps li { margin: 6px 0; line-height: 1.4; } .syncsteps a { color: #3fd2ff; }
+.syncpanel .row input, .syncwelcome .row input { flex: 1; min-width: 0; background: #0006; border: 1px solid #ffffff33; color: var(--txt); border-radius: 10px; padding: 10px; font: inherit; }
+.syncwelcome { margin-top: 14px; text-align: left; background: #ffffff0d; border-radius: 14px; padding: 10px 12px; } .syncwelcome summary { cursor: pointer; font-weight: 700; }
+.chip.syncchip { border: 0; cursor: pointer; font: inherit; color: inherit; } .chip.syncchip.err { background: #ff3f7a33; }
+.apptoast { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translateX(-50%); background: #1d1530; border: 1px solid #3fd2ff88; color: #fff; padding: 10px 16px; border-radius: 99px; z-index: 99; font-weight: 700; font-size: 14px; animation: bubPop .35s; box-shadow: 0 6px 20px #0008; }

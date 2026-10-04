@@ -1,5 +1,5 @@
 // Offline cache: the whole game works without internet after the first visit (multiplayer needs internet).
-const VERSION = 'cc-v7';
+const VERSION = 'cc-v8';
 const CORE = [
   './',
   "css/style.css",
@@ -28,6 +28,7 @@ const CORE = [
   "js/core/questions.js",
   "js/core/speech.js",
   "js/core/store.js",
+  "js/core/sync.js",
   "js/games/boss.js",
   "js/games/factory.js",
   "js/games/ninja.js",

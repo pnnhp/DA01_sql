@@ -75,6 +75,6 @@ Every question in the app belongs to the lesson that teaches it: the 260 concept
 - **Ranks:** readiness = your mastery × exam weighting, from Intern up to CPA Legend.
 - **Study plan:** set your exam date and the plan splits the remaining weeks using the study-map hours.
 - **Multiplayer:** peer-to-peer WebRTC via the free PeerJS broker. One player hosts and shares the invite link.
-- **Progress** is stored on each device. Use *More → Copy my save code* to move it between devices.
+- **Progress syncs between your devices.** Go to *More → ☁️ Sync my devices* and connect each device once with the same GitHub token (it only has the *gist* permission). Your progress is kept in a private gist in your account. Each device merges with the other, so nothing is lost even if you study on both before syncing. Sync runs when you open the app, every few minutes and shortly after you study. It also protects your progress if Safari clears the site's data. The save code still works and now merges too.
 
 Content is written in original wording from the CPA Australia learning objectives, with the published errata applied. Not affiliated with CPA Australia.
