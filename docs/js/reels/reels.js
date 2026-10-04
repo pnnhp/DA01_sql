@@ -48,7 +48,7 @@ function buildReels(topics) {
     const base = { color: m.color, mod: m.short, L };
     for (const it of [...t.items].sort((a, b) => b.wrong - a.wrong).slice(0, 2)) {
       reels.push({ ...base, kind: 'mistake', emoji: '😬', title: `You missed this ×${it.wrong}`,
-        html: `<div class="rq">${esc(it.q)}</div>${it.picked ? `<div class="rp st">You picked: <s>${esc(it.picked)}</s> ❌</div>` : ''}
+        html: `${it.intro ? `<details class="scen"><summary>📄 Scenario</summary><div>${it.intro}</div></details>` : ''}<div class="rq">${esc(it.q)}</div>${it.picked ? `<div class="rp st">You picked: <s>${esc(it.picked)}</s> ❌</div>` : ''}
           <div class="ra st">✅ ${esc(it.ans)}</div>${it.ex ? `<div class="rx st">💡 ${esc(it.ex)}</div>` : ''}`,
         say: `You missed this ${it.wrong} time${it.wrong > 1 ? 's' : ''}. ${it.q}. ${it.picked ? `You picked ${it.picked}. ` : ''}The answer is: ${it.ans}. ${it.ex}` });
     }
@@ -139,7 +139,7 @@ export function retest(app, topics) {
   const ask = () => {
     if (qi >= qs.length) return finish();
     const q = qs[qi];
-    frame(`<main class="lz-body"><div class="lz-kicker">🎯 Re-test · ${qi + 1}/${qs.length}${q.retestOf ? ' · you missed this before' : ''}</div><h2>${esc(q.q)}</h2>
+    frame(`<main class="lz-body"><div class="lz-kicker">🎯 Re-test · ${qi + 1}/${qs.length}${q.retestOf ? ' · you missed this before' : ''}</div>${q.intro ? `<details class="scen" open><summary>📄 Scenario</summary><div>${q.intro}</div></details>` : ''}<h2>${esc(q.q)}</h2>
       <div class="lz-opts">${q.opts.map((o, k) => `<button class="opt" data-k="${k}"><b>${LETTERS[k]}</b>${esc(o)}</button>`).join('')}</div><div id="fb"></div></main>
       <footer class="lz-foot"><span></span><span></span><button class="btn" id="next" disabled>Next ▶</button></footer>`);
     root.querySelectorAll('.opt').forEach(b => b.onclick = () => {

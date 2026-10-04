@@ -7,6 +7,8 @@ import { net } from './core/net.js';
 import { LESSONS, lessonById, lessonsForModule, dueLessons, lessonSchedule, iso } from './lessons/index.js';
 import { playLesson } from './lessons/player.js';
 import { playReels, retest } from './reels/reels.js';
+import { playBook, bookRows, bookCount, nextBookSet, bookQsForLesson } from './book/book.js';
+import { KIND } from './content/book/index.js';
 
 const S = store.state;
 export const GAMES = {
@@ -51,6 +53,7 @@ const app = {
     this.el.querySelector('#gb').onclick = () => this.go('map');
     return true;
   },
+  book(opts = {}) { if (this.current) { try { this.current.stop(); } catch (e) { /* ignore */ } this.current = null; } unlock(); sfx('click'); this.screen = 'bookplay'; playBook(this, opts); },
   reels(opts = {}) { if (this.current) { try { this.current.stop(); } catch (e) { /* ignore */ } this.current = null; } unlock(); sfx('click'); this.screen = 'reels'; playReels(this, opts); },
   lesson(id) { if (this.current) { try { this.current.stop(); } catch (e) { /* ignore */ } this.current = null; } unlock(); sfx('click'); playLesson(this, id); },
   go(screen, arg) {
@@ -86,7 +89,7 @@ function render(screen, arg) {
   const root = app.el;
   if (!S().profile.name) return renderWelcome();
   music(screen === 'map' ? 'menu' : 'calm');
-  const views = { map: viewMap, arcade: viewArcade, ranks: viewRanks, plan: viewLearn, learn: viewLearn, settings: viewSettings, lobby: viewLobby, module: viewModule, fix: viewFix };
+  const views = { map: viewMap, arcade: viewArcade, ranks: viewRanks, plan: viewLearn, learn: viewLearn, settings: viewSettings, lobby: viewLobby, module: viewModule, fix: viewFix, book: viewBook };
   root.innerHTML = `<div class="screen">${header()}<main>${(views[screen] || viewMap)(arg)}</main></div>`;
   bind(root);
 }
@@ -135,7 +138,7 @@ function viewMap() {
       <div class="nds">${GAMES[g].emoji} ${GAMES[g].title} · ${mm.weight}% of exam</div>
       <div class="ndb"><span>You ${pct(v)}%</span><span>🤖 ${pct(bv)}%</span></div></div></button>`;
   }).join('<div class="path"></div>');
-  return `${todayClass(true)}${fixCard()}<section class="mission" style="--mc:${m.color}"><div class="mtag">🎮 THEN PLAY</div>
+  return `${todayClass(true)}${fixCard()}${bookCard()}<section class="mission" style="--mc:${m.color}"><div class="mtag">🎮 THEN PLAY</div>
       <h3>${tm.cur.mod ? `${m.short}: ${m.name}` : 'Revision sprint'} </h3><p>Plan: ~${tm.cur.hoursPerDay} h/day. Weak spots: ${tm.weak.map(lo => `<b>${lo}</b>`).join(', ')}</p>
       <div class="row"><button class="btn" data-play="${tm.gid}">${GAMES[tm.gid].emoji} Play ${GAMES[tm.gid].title}</button><button class="btn ghost" data-play="royale">🪂 Quick Royale</button></div></section>
     <section class="specials">
@@ -155,6 +158,7 @@ function viewModule(id) {
   <div class="gamecard big" data-play="${gid}" style="--mc:${m.color}"><div class="ge">${GAMES[gid].emoji}</div><div><b>${GAMES[gid].title}</b><i>${GAMES[gid].style}</i><p>${GAMES[gid].desc}</p></div><span class="playbtn">▶</span></div>
   <div class="row"><button class="btn ghost" data-royale="${m.id}">🪂 Royale: ${m.short} only</button><button class="btn ghost" data-tanks="${m.id}">💣 Tanks: ${m.short} only</button></div>
   <h3 class="sec">📚 Lessons</h3><div class="lrows">${lessonsForModule(m.id).map(L => `<button class="lrow ${store.lessonDone(L.id) ? 'done' : ''}" data-lesson="${L.id}" style="--mc:${m.color}"><span class="lck">${store.lessonDone(L.id) ? '✅' : '📖'}</span><span class="lt"><b>${esc(L.title)}</b><i>~${L.mins} min</i></span><span class="lgo">▶</span></button>`).join('')}</div>
+  <h3 class="sec">📕 From the book <button class="btn ghost small" data-bookrand="${m.id}">🎲 Random 10</button></h3><div class="lrows">${bookRows(m.id)}</div>
   <h3 class="sec">Learning objectives</h3>
   <div class="lolist">${Object.entries(m.los).map(([lo, n]) => { const v = store.loMastery(lo), b = store.loMastery(lo, 'bot'); return `<div class="lo"><div><b>${lo}</b> ${n}</div>
     <div class="bars"><div class="bar me"><i style="width:${pct(v)}%"></i></div><div class="bar bot"><i style="width:${pct(b)}%"></i></div></div><span>${pct(v)}% · 🤖${pct(b)}%</span></div>`; }).join('')}</div>
@@ -180,6 +184,25 @@ function viewRanks() {
   <h3 class="sec">Weakest topics → practise next</h3><div class="weak">${store.weakestLOs(6).map(lo => `<button class="chip" data-mod="${lo.split('.')[0]}">${lo} ${esc(loName(lo))} · ${pct(store.loMastery(lo))}%</button>`).join('')}</div>
   <h3 class="sec">Activity (last 8 weeks)</h3><div class="heat">${cells.join('')}</div>
   <h3 class="sec">Ranks</h3><div class="ranks">${store.RANKS.map(k => `<span class="${r >= k.min ? 'got' : ''}">${k.icon} ${k.name} <small>${k.min}%+</small></span>`).join('')}</div>`;
+}
+
+// ───────── Book practice: every study-guide question
+function bookCard(always) {
+  const nx = nextBookSet(); const total = bookCount(); const done = Object.keys(S().book || {}).length;
+  if (!nx && !always) return '';
+  return `<section class="fixcard bookcard"><div class="mtag">📕 BOOK PRACTICE · ${total} STUDY-GUIDE QUESTIONS</div>
+    ${nx ? `<h3>Next up: ${KIND[nx.kind].icon} M${nx.mod} · ${esc(nx.title)}</h3><p class="muted">${nx.qs.length} questions · you've done the lessons for it</p>` : `<p>Every question from the study guide, set by set. ${done} sets done.</p>`}
+    <div class="row">${nx ? `<button class="btn" data-book="${nx.id}">▶ Start</button>` : ''}<button class="btn ghost" data-go="book">All book questions</button></div></section>`;
+}
+function viewBook(openMod) {
+  const s = S(); const total = bookCount(); const sets = Object.values(s.book || {});
+  const right = sets.reduce((a, r) => a + r.best, 0);
+  return `<section class="panel fixhead"><h2>📕 Book practice</h2>
+    <p>All <b>${total}</b> questions from the study guide (reworded), in book order. 🌱 <b>Before you begin</b> = warm-up. ❓ <b>In-module questions</b> and ⚡ <b>Quick revision</b> unlock once you've done the lessons they use. 🏁 <b>Revision questions</b> = end-of-module exam practice. Mistakes go to 🎬 Fix-it, and book questions also appear in your games, lesson checks and the mock exam.</p>
+    <div class="stats"><div><b>${sets.length}</b><span>sets tried</span></div><div><b>${right}</b><span>best correct</span></div><div><b>${total}</b><span>questions</span></div><div><b>${s.lessons ? Object.keys(s.lessons).length : 0}</b><span>lessons done</span></div></div>
+    <div class="row"><button class="btn" data-bookrand="0">🎲 Random 10 (all modules)</button></div></section>
+  ${MODULES.map(m => { const ms = m.id; return `<details class="course" ${+openMod === ms ? 'open' : ''} style="--mc:${m.color}"><summary><b>${m.short} · ${m.name}</b><span>${Object.keys(s.book || {}).filter(id => id.startsWith('b' + ms + '-')).length} sets done</span></summary>
+    <div class="lrows">${bookRows(ms)}</div><button class="btn ghost small" data-bookrand="${ms}">🎲 Random 10 from ${m.short}</button></details>`; }).join('')}`;
 }
 
 // ───────── Fix-it: mistake memory → reels → re-test
@@ -218,7 +241,7 @@ function viewLearn() {
       <div class="lrows">${ls.map(L => { const it = items.find(x => x.id === L.id); const dn = store.lessonDone(L.id); const late = !dn && it && it.date < todayIso;
         return `<button class="lrow ${dn ? 'done' : ''} ${late ? 'late' : ''}" data-lesson="${L.id}" style="--mc:${m.color}"><span class="lck">${dn ? '✅' : late ? '⏰' : '📖'}</span><span class="lt"><b>${esc(L.title)}</b><i>${it ? 'Day ' + it.day + ' · ' + new Date(it.date).toLocaleDateString() : ''} · ~${L.mins} min</i></span><span class="lgo">▶</span></button>`; }).join('')}</div></details>`;
   }).join('');
-  return `${todayClass(false)}${fixCard()}
+  return `${todayClass(false)}${fixCard()}${bookCard(true)}
   <section class="panel"><h2>📈 Course progress</h2><div class="bar me" style="height:12px"><i style="width:${Math.round(done / total * 100)}%"></i></div><p class="muted">${done} of ${total} lessons done. Each lesson is 5–14 minutes: slides, tap-to-reveal examples, 🔊 read-aloud and a 5-question check (with fresh calculations).</p></section>
   <h3 class="sec">All lessons</h3>${course}
   <section class="panel"><h2>📅 Exam date & plan</h2><label class="row">Exam on <input type="date" id="exd" value="${s.settings.examDate}"></label>
@@ -271,6 +294,8 @@ function viewLobby(code) {
 // ───────── events
 function bind(root) {
   root.querySelectorAll('[data-play]').forEach(b => b.onclick = () => app.play(b.dataset.play));
+  root.querySelectorAll('[data-book]').forEach(b => b.onclick = e => { e.stopPropagation(); app.book({ set: b.dataset.book }); });
+  root.querySelectorAll('[data-bookrand]').forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); app.book({ mod: +b.dataset.bookrand || undefined, random: 10 }); });
   root.querySelectorAll('[data-reels]').forEach(b => b.onclick = () => app.reels(b.dataset.reels ? { lessons: [b.dataset.reels] } : {}));
   if (root.querySelector('#rtonly')) root.querySelector('#rtonly').onclick = () => { unlock(); retest(app, store.weakTopics().slice(0, 3)); };
   root.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { sfx('click'); app.go(b.dataset.go); });

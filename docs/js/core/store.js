@@ -28,6 +28,7 @@ function blank() {
     seenCards: {},
     mistakes: {},      // question key -> { key, lesson, lo, q, ans, ex, picked, wrong, right, streak, last, first }
     retests: [],       // { at, lessons, score, total }
+    book: {},          // study-guide set id -> { best, last, total, at, tries }
   };
 }
 
@@ -35,7 +36,7 @@ let S = load();
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { const b = blank(), o = JSON.parse(raw); const out = Object.assign(b, o); out.settings = Object.assign(blank().settings, o.settings || {}); out.lessons = o.lessons || {}; out.mistakes = o.mistakes || {}; out.retests = o.retests || []; return out; }
+    if (raw) { const b = blank(), o = JSON.parse(raw); const out = Object.assign(b, o); out.settings = Object.assign(blank().settings, o.settings || {}); out.lessons = o.lessons || {}; out.mistakes = o.mistakes || {}; out.retests = o.retests || []; out.book = o.book || {}; return out; }
   } catch (e) { /* storage unavailable */ }
   return blank();
 }
@@ -154,7 +155,7 @@ export function remember(q, ok, picked) {
   const m = S.mistakes[q.key];
   if (!ok) {
     const e = m || (S.mistakes[q.key] = { key: q.key, lesson: q.lesson, lo: q.lo, wrong: 0, right: 0, streak: 0, first: Date.now() });
-    Object.assign(e, { q: q.q, ans: q.opts[q.a], ex: q.ex || '', picked: picked != null && picked >= 0 ? q.opts[picked] : '', lesson: q.lesson, lo: q.lo });
+    Object.assign(e, { q: q.q, intro: q.intro || '', ans: q.opts[q.a], ex: q.ex || '', picked: picked != null && picked >= 0 ? q.opts[picked] : '', lesson: q.lesson, lo: q.lo });
     e.wrong++; e.streak = 0; e.last = Date.now(); e.fixedAt = 0;
   } else if (m) {
     m.right++; m.streak++; m.last = Date.now(); if (m.streak >= FIXED_AFTER && !m.fixedAt) m.fixedAt = Date.now();
@@ -175,5 +176,12 @@ export function weakTopics(k = 50) {
 }
 export function fixedCount() { return Object.values(S.mistakes).filter(m => mistakeStatus(m) === 'fixed').length; }
 export function logRetest(entry) { S.retests.unshift({ at: Date.now(), ...entry }); S.retests = S.retests.slice(0, 60); save(); }
+
+// ── Study-guide (book) practice results
+export function bookResult(id, score, total) {
+  const r = S.book[id] || (S.book[id] = { best: 0, last: 0, total, tries: 0 });
+  r.last = score; r.total = total; r.best = Math.max(r.best, score); r.tries++; r.at = Date.now(); save();
+}
+export const bookStat = id => S.book[id] || null;
 
 export { BOT_LEVELS, loModule };

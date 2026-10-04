@@ -31,7 +31,7 @@ export default class Boss extends Game {
     const q = this.qs[this.i], n = this.qs.length, s = this.sel[this.i], lk = this.locked[this.i];
     const mm = Math.floor(this.left / 60), ss = Math.floor(this.left % 60);
     this.ui.innerHTML = `<div class="eq"><h3>QUESTION ${this.i + 1} OF ${n} · ${MODULES[q.mod - 1].short} · ⏱ ${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}:${String(ss).padStart(2, '0')} ${this.flag[this.i] ? '· 🚩 flagged' : ''}</h3>
-      <p>${esc(q.q)}</p>
+      ${q.intro ? `<details class="scen" open><summary>📄 Scenario</summary><div>${q.intro}</div></details>` : ''}<p>${esc(q.q)}</p>
       ${q.opts.map((o, k) => { let c = s === k ? 'sel' : ''; if (lk) c = k === q.a ? 'good' : (s === k ? 'bad' : ''); return `<button class="opt ${c}" data-k="${k}"><b>${LETTERS[k]}</b>${esc(o)}</button>`; }).join('')}
       ${lk && this.practice ? `<div class="ex">${s === q.a ? '✔ Correct. ' : '✗ '}${esc(q.ex || '')}</div>` : ''}</div>
       <div class="nav"><button class="btn ghost" id="prev">◀ Prev</button><button class="btn ghost" id="flg">${this.flag[this.i] ? 'Unflag' : '🚩 Flag'}</button>

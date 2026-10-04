@@ -6,6 +6,7 @@ import { esc, LETTERS } from '../core/engine.js';
 import { lessonQuiz } from '../core/questions.js';
 import { MODULES } from '../content/syllabus.js';
 import { speak, speakable, hush } from '../core/speech.js';
+import { bookQsForLesson } from '../book/book.js';
 
 const GAME_NAMES = { ninja: '🥷 Info Ninja', runner: '🏃 Cost Runner', factory: '🏭 Overhead Factory', strike: '🚀 Variance Strike', tycoon: '🏢 Division Tycoon', rush: '⚙️ Factory Rush', warehouse: '📦 Warehouse Panic' };
 
@@ -73,11 +74,13 @@ export function playLesson(app, id) {
       <div class="say">${right === qs.length ? 'Perfect! You\'re a natural. 🐷💕' : right ? 'Nice work! Mistakes are how we learn. Try the game to lock it in.' : 'That\'s OK! Read the slides again or play the game. Repeating is how memory works.'}</div>
       <div class="lz-actions">${L.game ? `<button class="btn big" id="game">Practise in ${GAME_NAMES[L.game]}</button>` : ''}
       ${nxt ? `<button class="btn ${L.game ? 'ghost' : 'big'}" id="nxt">Next lesson: ${esc(nxt.title)} ▶</button>` : ''}
+      ${bookQsForLesson(L.id).length ? `<button class="btn ghost" id="bookq">📕 Book questions on this lesson (${bookQsForLesson(L.id).length})</button>` : ''}
       <button class="btn ghost" id="again">↻ Redo this lesson</button><button class="btn ghost" id="home">📚 Back to Learn</button></div></main>`);
     root.querySelector('.lz-prog i').style.width = '100%';
     const g = root.querySelector('#game'); if (g) g.onclick = () => app.play(L.game);
     const n = root.querySelector('#nxt'); if (n) n.onclick = () => playLesson(app, nxt.id);
     root.querySelector('#again').onclick = () => playLesson(app, L.id);
+    const bq = root.querySelector('#bookq'); if (bq) bq.onclick = () => app.book({ lesson: L.id });
     root.querySelector('#home').onclick = () => app.go('learn');
   };
   slide(); window.scrollTo(0, 0);
