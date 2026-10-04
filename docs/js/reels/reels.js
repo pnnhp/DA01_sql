@@ -230,7 +230,7 @@ export function retest(app, topics) {
     const rows = topics.map(t => {
       const L = lessonById(t.lesson), mine = res.filter(r => r.q.lesson === t.lesson), ok = mine.filter(r => r.ok).length;
       const left = store.activeMistakes(t.lesson).length;
-      const verdict = !mine.length ? ['➖', 'Not tested', ''] : ok === mine.length ? (left ? ['💪', 'Getting there', `All right this time! Get ${left === 1 ? 'it' : 'them'} right once more (in a game or a later re-test) to lock ${left === 1 ? 'it' : 'them'} in.`] : ['✅', 'Fixed!', 'You nailed it twice in a row. Great job!']) : ['🤔', 'Still tricky', 'Watch the reels again or redo the full lesson. That\'s normal: repetition is how memory works.'];
+      const verdict = !mine.length ? ['➖', 'Not tested', ''] : ok === mine.length ? (left ? ['💪', 'Getting there', `All right this time! Get ${left === 1 ? 'it' : 'them'} right again on another day (tomorrow's re-test or a game) to lock ${left === 1 ? 'it' : 'them'} in.`] : ['✅', 'Fixed!', 'Right twice, on different days. It has stuck. Great job!']) : ['🤔', 'Still tricky', 'Watch the reels again or redo the full lesson. That\'s normal: repetition is how memory works.'];
       return `<div class="rt-row ${verdict[1] === 'Still tricky' ? 'bad' : ''}"><div class="rt-v">${verdict[0]}</div><div><b>${esc(L.title)}</b><span>${verdict[1]} · ${ok}/${mine.length} now · ${before[t.lesson]} mistake${before[t.lesson] === 1 ? '' : 's'} before → ${left} left</span><i>${verdict[2]}</i>
         ${verdict[1] === 'Still tricky' ? `<div class="row"><button class="btn small" data-again="${t.lesson}">🎬 Re-watch</button><button class="btn ghost small" data-lesson="${t.lesson}">📖 Full lesson</button></div>` : ''}</div></div>`;
     }).join('');

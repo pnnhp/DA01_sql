@@ -29,6 +29,8 @@ function blank() {
     mistakes: {},      // question key -> { key, lesson, lo, q, ans, ex, picked, wrong, right, streak, last, first }
     retests: [],       // { at, lessons, score, total }
     book: {},          // study-guide set id -> { best, last, total, at, tries }
+    reading: {},       // study-guide section key (r4.3) -> time ticked as read
+    forecasts: {},     // 'YYYY-MM-DD' -> { ready, spare, speed } (one per day, for the trend)
   };
 }
 
@@ -36,7 +38,7 @@ let S = load();
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { const b = blank(), o = JSON.parse(raw); const out = Object.assign(b, o); out.settings = Object.assign(blank().settings, o.settings || {}); out.lessons = o.lessons || {}; out.mistakes = o.mistakes || {}; out.retests = o.retests || []; out.book = o.book || {}; return out; }
+    if (raw) { const b = blank(), o = JSON.parse(raw); const out = Object.assign(b, o); out.settings = Object.assign(blank().settings, o.settings || {}); out.lessons = o.lessons || {}; out.mistakes = o.mistakes || {}; out.retests = o.retests || []; out.book = o.book || {}; out.reading = o.reading || {}; out.forecasts = o.forecasts || {}; return out; }
   } catch (e) { /* storage unavailable */ }
   return blank();
 }
@@ -142,13 +144,13 @@ export function leaderboard() {
 export function lessonDone(id) { return !!(S.lessons[id] && S.lessons[id].done); }
 export function markLesson(id, score, total) {
   const first = !lessonDone(id);
-  S.lessons[id] = { done: Date.now(), score, total };
+  const prev = S.lessons[id]; S.lessons[id] = { done: prev && prev.done ? prev.done : Date.now(), last: Date.now(), score, total };
   const d = today(); S.days[d] = (S.days[d] || 0) + 1;
   if (S.streak.lastDay !== d) { const y = localIso(new Date(Date.now() - DAY)); S.streak.days = S.streak.lastDay === y ? S.streak.days + 1 : 1; S.streak.lastDay = d; }
   if (first) addXP(40); else save();
   return first;
 }
-// ── Mistake memory: remembers every question you get wrong until you get it right twice in a row.
+// ── Mistake memory: remembers every question you get wrong until you get it right twice in a row, on two different days.
 export const FIXED_AFTER = 2;
 export function remember(q, ok, picked) {
   if (!q || !q.key || !q.lesson) return;
@@ -156,9 +158,12 @@ export function remember(q, ok, picked) {
   if (!ok) {
     const e = m || (S.mistakes[q.key] = { key: q.key, lesson: q.lesson, lo: q.lo, wrong: 0, right: 0, streak: 0, first: Date.now() });
     Object.assign(e, { q: q.q, intro: q.intro || '', ans: q.opts[q.a], ex: q.ex || '', picked: picked != null && picked >= 0 ? q.opts[picked] : '', lesson: q.lesson, lo: q.lo });
-    e.wrong++; e.streak = 0; e.last = Date.now(); e.fixedAt = 0;
+    e.wrong++; e.streak = 0; e.rightDay = ''; e.last = Date.now(); e.fixedAt = 0;
   } else if (m) {
-    m.right++; m.streak++; m.last = Date.now(); if (m.streak >= FIXED_AFTER && !m.fixedAt) m.fixedAt = Date.now();
+    // a second correct answer only counts on a DIFFERENT day (that's what makes it stick)
+    m.right++; m.last = Date.now(); const d = today();
+    if (m.streak === 0 || m.rightDay !== d) { m.streak++; m.rightDay = d; }
+    if (m.streak >= FIXED_AFTER && !m.fixedAt) m.fixedAt = Date.now();
   }
   save();
 }
@@ -183,5 +188,10 @@ export function bookResult(id, score, total) {
   r.last = score; r.total = total; r.best = Math.max(r.best, score); r.tries++; r.at = Date.now(); save();
 }
 export const bookStat = id => S.book[id] || null;
+
+// ── Study-guide reading checklist
+export const sectionRead = key => !!S.reading[key];
+export function toggleSection(key) { if (S.reading[key]) delete S.reading[key]; else S.reading[key] = Date.now(); save(); return !!S.reading[key]; }
+export function saveForecast(day, f) { S.forecasts[day] = f; const ks = Object.keys(S.forecasts).sort(); while (ks.length > 120) delete S.forecasts[ks.shift()]; save(); }
 
 export { BOT_LEVELS, loModule };

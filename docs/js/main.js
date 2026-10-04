@@ -9,6 +9,8 @@ import { playLesson } from './lessons/player.js';
 import { playReels, retest } from './reels/reels.js';
 import { playBook, bookRows, bookCount, nextBookSet, bookQsForLesson } from './book/book.js';
 import { KIND } from './content/book/index.js';
+import { forecast, STATUS, fmtDate } from './core/forecast.js';
+import { READING, readingSections, sectionKey } from './content/reading.js';
 
 const S = store.state;
 export const GAMES = {
@@ -126,7 +128,7 @@ function todayClass(compact) {
   const more = t.due.length > (compact ? 3 : 12) ? `<p class="muted small">+${t.due.length - (compact ? 3 : 12)} more to catch up</p>` : '';
   const empty = !t.due.length ? (t.next ? `<p>🎉 You're all caught up for today! Want to get ahead?</p><button class="lrow" data-lesson="${t.next.id}"><span class="lck">⏭</span><span class="lt"><b>${esc(lessonById(t.next.id).title)}</b><i>scheduled ${t.next.date}</i></span><span class="lgo">▶</span></button>` : '<p>🏁 All lessons done! Now it\'s revision time: play Final Boss mock exams daily.</p>') : '';
   return `<section class="classcard"><div class="mtag">📚 TODAY'S CLASS · DAY ${dayNo}</div><h3>${t.due.length ? `${t.due.length} lesson${t.due.length > 1 ? 's' : ''} to do` : 'Lessons done ✔'}</h3>
-    <div class="lrows">${list}</div>${more}${empty}</section>`;
+    <div class="lrows">${list}</div>${more}${empty}${(() => { const nr = nextReading(); return nr ? `<p class="muted small" style="margin:10px 0 4px">📖 Also read in the study guide:</p><div class="lrows"><button class="lrow readrow" data-read="${sectionKey(nr.mod, nr.sec.n)}"><span class="lck">⬜</span><span class="lt"><b>M${nr.mod} §${nr.sec.n} ${esc(nr.sec.title)}</b><i>~${hm(nr.sec.mins)} · tap when read</i></span></button></div>` : ''; })()}</section>`;
 }
 
 function viewMap() {
@@ -138,7 +140,7 @@ function viewMap() {
       <div class="nds">${GAMES[g].emoji} ${GAMES[g].title} · ${mm.weight}% of exam</div>
       <div class="ndb"><span>You ${pct(v)}%</span><span>🤖 ${pct(bv)}%</span></div></div></button>`;
   }).join('<div class="path"></div>');
-  return `${todayClass(true)}${fixCard()}${bookCard()}<section class="mission" style="--mc:${m.color}"><div class="mtag">🎮 THEN PLAY</div>
+  return `${todayClass(true)}${forecastLine()}${fixCard()}${bookCard()}<section class="mission" style="--mc:${m.color}"><div class="mtag">🎮 THEN PLAY</div>
       <h3>${tm.cur.mod ? `${m.short}: ${m.name}` : 'Revision sprint'} </h3><p>Plan: ~${tm.cur.hoursPerDay} h/day. Weak spots: ${tm.weak.map(lo => `<b>${lo}</b>`).join(', ')}</p>
       <div class="row"><button class="btn" data-play="${tm.gid}">${GAMES[tm.gid].emoji} Play ${GAMES[tm.gid].title}</button><button class="btn ghost" data-play="royale">🪂 Quick Royale</button></div></section>
     <section class="specials">
@@ -159,6 +161,7 @@ function viewModule(id) {
   <div class="row"><button class="btn ghost" data-royale="${m.id}">🪂 Royale: ${m.short} only</button><button class="btn ghost" data-tanks="${m.id}">💣 Tanks: ${m.short} only</button></div>
   <h3 class="sec">📚 Lessons</h3><div class="lrows">${lessonsForModule(m.id).map(L => `<button class="lrow ${store.lessonDone(L.id) ? 'done' : ''}" data-lesson="${L.id}" style="--mc:${m.color}"><span class="lck">${store.lessonDone(L.id) ? '✅' : '📖'}</span><span class="lt"><b>${esc(L.title)}</b><i>~${L.mins} min</i></span><span class="lgo">▶</span></button>`).join('')}</div>
   <h3 class="sec">📕 From the book <button class="btn ghost small" data-bookrand="${m.id}">🎲 Random 10</button></h3><div class="lrows">${bookRows(m.id)}</div>
+  <h3 class="sec">📖 Study-guide reading</h3><div class="lrows">${readingRows(m.id)}</div>
   <h3 class="sec">Learning objectives</h3>
   <div class="lolist">${Object.entries(m.los).map(([lo, n]) => { const v = store.loMastery(lo), b = store.loMastery(lo, 'bot'); return `<div class="lo"><div><b>${lo}</b> ${n}</div>
     <div class="bars"><div class="bar me"><i style="width:${pct(v)}%"></i></div><div class="bar bot"><i style="width:${pct(b)}%"></i></div></div><span>${pct(v)}% · 🤖${pct(b)}%</span></div>`; }).join('')}</div>
@@ -176,7 +179,7 @@ function viewRanks() {
   const lb = store.leaderboard(), r = store.readiness(), br = store.readiness('bot');
   const days = S().days; const cells = [];
   for (let i = 55; i >= 0; i--) { const d = iso(new Date(Date.now() - i * 86400000)); const n = days[d] || 0; cells.push(`<i title="${d}: ${n}" class="h${n === 0 ? 0 : n < 15 ? 1 : n < 40 ? 2 : 3}"></i>`); }
-  return `<section class="readiness"><div>${ring(r / 100, '#3fff8b', 110, r + '%')}<b>You</b></div><div class="vs">VS</div><div>${ring(br / 100, '#b04bff', 110, br + '%')}<b>🤖 ${esc(S().settings.botName)}</b></div></section>
+  return `${forecastLine()}<section class="readiness"><div>${ring(r / 100, '#3fff8b', 110, r + '%')}<b>You</b></div><div class="vs">VS</div><div>${ring(br / 100, '#b04bff', 110, br + '%')}<b>🤖 ${esc(S().settings.botName)}</b></div></section>
   <p class="center muted">Exam readiness = mastery × exam weighting. Predicted exam score ≈ <b>${store.predictedScore()}%</b>. ${r >= br ? 'You are ahead of your bot — keep the gap!' : 'Your bot is ahead — it studies at a typical pace, so beat it!'}</p>
   <h3 class="sec">Leaderboard</h3><div class="lb">${lb.map((p, i) => `<div class="lbrow ${p.me ? 'me' : ''} ${p.bot ? 'bot' : ''}"><span class="pos">${i + 1}</span><span class="nm">${esc(p.name)}${p.me ? ' (you)' : ''}</span><span class="rk">${p.rank}</span><b>${p.readiness}%</b></div>`).join('')}</div>
   <p class="muted small">Friends appear here after you play together (scores sync over the connection).</p>
@@ -184,6 +187,79 @@ function viewRanks() {
   <h3 class="sec">Weakest topics → practise next</h3><div class="weak">${store.weakestLOs(6).map(lo => `<button class="chip" data-mod="${lo.split('.')[0]}">${lo} ${esc(loName(lo))} · ${pct(store.loMastery(lo))}%</button>`).join('')}</div>
   <h3 class="sec">Activity (last 8 weeks)</h3><div class="heat">${cells.join('')}</div>
   <h3 class="sec">Ranks</h3><div class="ranks">${store.RANKS.map(k => `<span class="${r >= k.min ? 'got' : ''}">${k.icon} ${k.name} <small>${k.min}%+</small></span>`).join('')}</div>`;
+}
+
+// ───────── Exam-ready forecast
+const hm = m => m >= 90 ? `${(m / 60).toFixed(1)} h` : `${Math.round(m)} min`;
+function forecastLine() {
+  const f = forecast(); const [dot, name] = STATUS[f.status];
+  if (!f.ready) return `<button class="fcline" data-go="learn">🔮 <b>Exam-ready forecast:</b> finish a lesson or tick a study-guide section to start it ▸</button>`;
+  return `<button class="fcline ${f.status}" data-go="learn">🔮 ${dot} <b>${name}</b> · ready ~${fmtDate(f.ready)} · ${f.spare >= 0 ? f.spare + ' days spare' : -f.spare + ' days short'}${f.early ? ' · early estimate' : ''} ▸</button>`;
+}
+function fcChart(f) {
+  const W = 340, H = 120, P = 22;
+  const t0 = f.series.length ? f.series[0].d : Date.now();
+  const t1 = Math.max(f.exam.getTime(), f.ready ? f.ready.getTime() : 0, f.revStart.getTime()) + 3 * 86400000;
+  const X = t => P + (t - t0) / (t1 - t0) * (W - P - 6), Y = p => H - 18 - p * (H - 30);
+  const you = f.series.map(x => `${X(x.d).toFixed(1)},${Y(x.p).toFixed(1)}`).join(' ');
+  const last = f.series[f.series.length - 1] || { d: Date.now(), p: 0 };
+  const learnEnd = f.learnDays != null ? last.d + f.learnDays * 86400000 : null;
+  const v = (t, c, label) => `<line x1="${X(t)}" x2="${X(t)}" y1="8" y2="${H - 18}" stroke="${c}" stroke-width="1.5"/><text x="${X(t)}" y="${H - 4}" fill="${c}" font-size="9" text-anchor="middle">${label}</text>`;
+  return `<svg class="fcchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Progress chart">
+    <text x="2" y="${Y(1) + 3}" font-size="8" fill="#9a93b8">100%</text><text x="10" y="${Y(0) + 3}" font-size="8" fill="#9a93b8">0</text>
+    <line x1="${P}" x2="${W - 6}" y1="${Y(0)}" y2="${Y(0)}" stroke="#ffffff22"/><line x1="${P}" x2="${W - 6}" y1="${Y(1)}" y2="${Y(1)}" stroke="#ffffff14"/>
+    <line x1="${X(f.planStart.getTime())}" y1="${Y(0)}" x2="${X(f.revStart.getTime())}" y2="${Y(1)}" stroke="#b9a8ff" stroke-dasharray="5 4" stroke-width="1.5"/>
+    ${learnEnd ? `<line x1="${X(last.d)}" y1="${Y(last.p)}" x2="${X(Math.min(learnEnd, t1))}" y2="${Y(learnEnd <= t1 ? 1 : last.p + (1 - last.p) * (t1 - last.d) / (learnEnd - last.d))}" stroke="#3fff8b" stroke-dasharray="2 3" stroke-width="2.5"/>` : ''}
+    <polyline points="${you}" fill="none" stroke="#3fff8b" stroke-width="3" stroke-linejoin="round"/>
+    ${v(f.exam.getTime(), '#ff3f7a', 'Exam')}${f.ready && f.ready.getTime() <= t1 ? v(f.ready.getTime(), f.status === 'behind' ? '#ff3f7a' : '#ffd23f', 'Ready') : ''}
+  </svg><div class="fclegend"><span class="l1">━ You so far</span><span class="l2">┅ Your pace</span><span class="l3">╌ The plan</span></div>`;
+}
+function forecastPanel() {
+  const f = forecast(); const [dot, name] = STATUS[f.status];
+  const pct = f.avg != null ? Math.round(f.avg * 100) : null;
+  if (!f.ready) return `<section class="panel forecast"><h2>🔮 Exam-ready forecast</h2><p>Finish your first lesson (or tick a study-guide section you've read) and I'll forecast the date you'll be exam-ready, compared with your exam on <b>${fmtDate(f.exam)}</b>.</p></section>`;
+  const tips = [];
+  tips.push(`To finish lessons + study-guide reading before revision starts on <b>${fmtDate(f.revStart)}</b>, aim for <b>${Math.ceil(f.needPerDay)} min/day</b>. You're averaging <b>${Math.round(f.speed)} min/day</b>.`);
+  if (pct != null) tips.push(pct < 80 ? `Your lesson-check average is <b>${pct}%</b>. Getting it to 80%+ (re-read slides, use 🎬 Fix-it) removes the extra redo time.` : `Lesson checks average <b>${pct}%</b>. Great understanding, no redo time needed.`);
+  if (f.low.length) tips.push(`Redo these lessons (under 60% on the check): ${f.low.map(L => `<button class="chipbtn" data-lesson="${L.id}">${esc(L.title)}</button>`).join(' ')}`);
+  if (f.lastMock != null && f.lastMock < 75) tips.push(`Your latest mock exam was <b>${f.lastMock}%</b>, so I've added 30% more revision time. Aim for 75%+.`);
+  if (f.status !== 'ontrack') tips.push(`Options: study a bit more each day, or move your exam date. At this pace, the earliest date with a week spare is <b>${fmtDate(f.earliestExam)}</b>.`);
+  if (f.trend != null) tips.push(f.trend > 0 ? `📈 You're speeding up: your ready date is <b>${f.trend} days earlier</b> than a week ago.` : f.trend < 0 ? `📉 Your ready date has slipped <b>${-f.trend} days</b> since a week ago. A short study session today helps!` : 'Your ready date is the same as a week ago. Steady!');
+  return `<section class="panel forecast ${f.status}"><h2>🔮 Exam-ready forecast</h2>
+    <div class="fcstatus"><span class="fcbadge ${f.status}">${dot} ${name}</span>${f.early ? '<span class="fcbadge early">early estimate</span>' : ''}</div>
+    <div class="fcnums"><div><b>${fmtDate(f.ready)}</b><span>you'd be ready</span><em class="${f.spare >= 0 ? 'ok' : 'no'}">${f.spare >= 0 ? '+' + f.spare : f.spare}</em><span>days ${f.spare >= 0 ? 'spare' : 'short'}</span></div>
+      <div><b>${fmtDate(f.exam)}</b><span>exam date</span><em>${pct != null ? pct + '%' : '–'}</em><span>lesson checks</span></div></div>
+    ${fcChart(f)}
+    <ul class="fctips">${tips.map(t => `<li>${t}</li>`).join('')}</ul>
+    <details class="fcmath"><summary>How this is worked out</summary><table class="t">
+      <tr><td>Your learning speed</td><td>${Math.round(f.speed)} min/day <i>(lessons + guide reading, last ${f.win} day${f.win > 1 ? 's' : ''}, rest days count)</i></td></tr>
+      <tr><td>Your total study effort</td><td>~${Math.round(f.effort)} min/day <i>(+ ~1 min per practice question)</i></td></tr>
+      <tr><td>Lessons left</td><td>${f.lessonsLeft} of ${f.lessonsTotal} · ${hm(f.lessonMinsLeft)}</td></tr>
+      <tr><td>Study-guide reading left</td><td>${hm(f.readLeft)} of ${hm(f.readTotal)} <i>(study-map hours)</i></td></tr>
+      <tr><td>Redo time</td><td>${hm(f.redoMins)} <i>(lessons under 60%${pct != null && pct < 80 ? ' + check average below 80%' : ''})</i></td></tr>
+      <tr><td>Days to finish learning</td><td>${hm(f.learnLeft)} ÷ ${Math.round(f.speed)} min/day = ${f.learnDays}</td></tr>
+      <tr><td>Revision needed</td><td>${f.revisionH.toFixed(1)} h → ${f.revDays} days at your effort</td></tr>
+      <tr><td><b>Ready date</b></td><td><b>today + ${f.learnDays} + ${f.revDays} = ${fmtDate(f.ready)}</b></td></tr></table>
+      <p class="muted small">The early estimate firms up after about 3 study days. Lessons cover the key ideas (~13 h); the study-map hours (~120 h) assume you also read the study guide, so tick sections below as you read them.</p></details></section>`;
+}
+
+// ───────── Study-guide reading checklist
+function readingRows(mod) {
+  return readingSections(mod).map(sec => { const k = sectionKey(mod, sec.n), done = store.sectionRead(k);
+    return `<button class="lrow readrow ${done ? 'done' : ''}" data-read="${k}"><span class="lck">${done ? '✅' : '⬜'}</span><span class="lt"><b>${sec.n}. ${esc(sec.title)}</b><i>~${hm(sec.mins)}${done ? ' · read ' + new Date(S().reading[k]).toLocaleDateString() : ''}</i></span></button>`; }).join('');
+}
+function readingPanel() {
+  const tot = READING.reduce((a, m) => a + m.sections.length, 0), done = Object.keys(S().reading || {}).length;
+  return `<h3 class="sec">📖 Study-guide reading <span class="muted small">${done}/${tot} sections</span></h3>
+  ${MODULES.map(m => { const n = readingSections(m.id).filter(sec => store.sectionRead(sectionKey(m.id, sec.n))).length;
+    return `<details class="course" style="--mc:${m.color}"><summary><b>${m.short} · ${m.name}</b><span>${n}/${readingSections(m.id).length}</span></summary><p class="muted small">Tick each section of the study guide once you've read it (and done its questions). It feeds your forecast.</p><div class="lrows">${readingRows(m.id)}</div></details>`; }).join('')}`;
+}
+function nextReading() {
+  const plan = buildPlan(S().settings.examDate, new Date(S().settings.planStart)).plan;
+  const now = new Date(); const cur = plan.find(p => p.mod && now >= p.start && now <= new Date(p.end.getTime() + 86399000));
+  const order = cur ? [cur.mod, ...MODULES.map(m => m.id).filter(id => id !== cur.mod)] : MODULES.map(m => m.id);
+  for (const mod of order) { const sec = readingSections(mod).find(x => !store.sectionRead(sectionKey(mod, x.n))); if (sec) return { mod, sec }; }
+  return null;
 }
 
 // ───────── Book practice: every study-guide question
@@ -216,11 +292,11 @@ function fixCard() {
 function viewFix() {
   const s = S(), topics = store.weakTopics(), all = Object.values(s.mistakes || {});
   const fixed = all.filter(m => store.mistakeStatus(m) === 'fixed').sort((a, b) => b.fixedAt - a.fixedAt);
-  const chip = m => ({ shaky: '<span class="mchip shaky">😬 shaky</span>', improving: '<span class="mchip imp">💪 1 more right</span>', fixed: '<span class="mchip ok">✅ fixed</span>' })[store.mistakeStatus(m)];
+  const chip = m => ({ shaky: '<span class="mchip shaky">😬 shaky</span>', improving: '<span class="mchip imp">💪 right once · again on another day</span>', fixed: '<span class="mchip ok">✅ fixed</span>' })[store.mistakeStatus(m)];
   const ago = t => { const d = Math.floor((Date.now() - t) / 86400000); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; };
   const last = (s.retests || [])[0];
   return `<section class="panel fixhead"><h2>🎬 Fix-it: your mistake memory</h2>
-    <p>Every question you get wrong is remembered here. Watch the <b>Fix-it Reels</b> (short videos made from the lesson that teaches it), then take a <b>re-test</b>. A mistake counts as fixed once you get it right <b>${store.FIXED_AFTER} times in a row</b>.</p>
+    <p>Every question you get wrong is remembered here. Watch the <b>Fix-it Reels</b> (short videos made from the lesson that teaches it), then take a <b>re-test</b>. A mistake counts as fixed once you get it right <b>${store.FIXED_AFTER} times in a row, on different days</b> (so it really sticks).</p>
     <div class="stats"><div><b>${topics.reduce((a, t) => a + t.items.length, 0)}</b><span>to fix</span></div><div><b>${topics.length}</b><span>topics</span></div><div><b>${fixed.length}</b><span>fixed</span></div><div><b>${last ? last.score + '/' + last.total : '–'}</b><span>last re-test</span></div></div>
     ${topics.length ? `<div class="row"><button class="btn big" data-reels>▶ Watch my reels</button><button class="btn ghost" id="rtonly">🎯 Re-test only</button></div>` : '<p class="muted">Nothing to fix yet. Play games or lessons and your mistakes will show up here. 🌟</p>'}</section>
   ${topics.map(t => { const L = lessonById(t.lesson), m = MODULES.find(x => x.id === L.mod) || { color: '#ffd23f', short: '' };
@@ -241,9 +317,10 @@ function viewLearn() {
       <div class="lrows">${ls.map(L => { const it = items.find(x => x.id === L.id); const dn = store.lessonDone(L.id); const late = !dn && it && it.date < todayIso;
         return `<button class="lrow ${dn ? 'done' : ''} ${late ? 'late' : ''}" data-lesson="${L.id}" style="--mc:${m.color}"><span class="lck">${dn ? '✅' : late ? '⏰' : '📖'}</span><span class="lt"><b>${esc(L.title)}</b><i>${it ? 'Day ' + it.day + ' · ' + new Date(it.date).toLocaleDateString() : ''} · ~${L.mins} min</i></span><span class="lgo">▶</span></button>`; }).join('')}</div></details>`;
   }).join('');
-  return `${todayClass(false)}${fixCard()}${bookCard(true)}
+  return `${todayClass(false)}${forecastPanel()}${fixCard()}${bookCard(true)}
   <section class="panel"><h2>📈 Course progress</h2><div class="bar me" style="height:12px"><i style="width:${Math.round(done / total * 100)}%"></i></div><p class="muted">${done} of ${total} lessons done. Each lesson is 5–14 minutes: slides, tap-to-reveal examples, 🔊 read-aloud and a 5-question check (with fresh calculations).</p></section>
   <h3 class="sec">All lessons</h3>${course}
+  ${readingPanel()}
   <section class="panel"><h2>📅 Exam date & plan</h2><label class="row">Exam on <input type="date" id="exd" value="${s.settings.examDate}"></label>
     <p class="muted">Plan started ${new Date(s.settings.planStart).toLocaleDateString()}. Changing the exam date respreads the remaining lessons.</p>
     <button class="btn ghost small" id="replan">↻ Restart my plan from today</button></section>
@@ -298,6 +375,7 @@ function viewLobby(code) {
 // ───────── events
 function bind(root) {
   root.querySelectorAll('[data-play]').forEach(b => b.onclick = () => app.play(b.dataset.play));
+  root.querySelectorAll('[data-read]').forEach(b => b.onclick = () => { const on = store.toggleSection(b.dataset.read); sfx(on ? 'coin' : 'click'); root.querySelectorAll(`[data-read="${b.dataset.read}"]`).forEach(x => { x.classList.toggle('done', on); x.querySelector('.lck').textContent = on ? '✅' : '⬜'; }); const fc = root.querySelector('.forecast'); if (fc) fc.outerHTML = forecastPanel(); });
   root.querySelectorAll('[data-book]').forEach(b => b.onclick = e => { e.stopPropagation(); app.book({ set: b.dataset.book }); });
   root.querySelectorAll('[data-bookrand]').forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); app.book({ mod: +b.dataset.bookrand || undefined, random: 10 }); });
   root.querySelectorAll('[data-reels]').forEach(b => b.onclick = () => app.reels(b.dataset.reels ? { lessons: [b.dataset.reels] } : {}));

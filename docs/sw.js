@@ -1,5 +1,5 @@
 // Offline cache: the whole game works without internet after the first visit (multiplayer needs internet).
-const VERSION = 'cc-v6';
+const VERSION = 'cc-v7';
 const CORE = [
   './',
   "css/style.css",
@@ -19,9 +19,11 @@ const CORE = [
   "js/content/book/m6.js",
   "js/content/book/m7.js",
   "js/content/generators.js",
+  "js/content/reading.js",
   "js/content/syllabus.js",
   "js/core/audio.js",
   "js/core/engine.js",
+  "js/core/forecast.js",
   "js/core/net.js",
   "js/core/questions.js",
   "js/core/speech.js",

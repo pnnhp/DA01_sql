@@ -29,6 +29,16 @@ Every question in the app belongs to the lesson that teaches it: the 260 concept
 - **Final Boss:** the mock exam always uses the whole syllabus, like the real exam.
 - **Checking it:** `node tools/check_coverage.mjs` confirms that every question maps to a lesson and that each correct answer's key words appear in that lesson's slides.
 
+## 🔮 Exam-ready forecast + 📖 study-guide reading
+- **Reading checklist.** The Learn tab lists all 80 sections of the study guide. Each one has a reading-time estimate, worked out by sharing the official study-map hours (~120 h) across the sections by length. Tick a section when you've read it, and *Today's class* suggests the next one.
+- **Forecast.** It uses your real learning speed (lessons + reading over the last 14 days, rest days counted), your lesson-check average (redo time is added below 80%, and lessons under 60% are listed) and revision time (more if your last mock exam was under 75%). From those it estimates the date you'd be exam-ready, compared with your exam date.
+  - It also says how many minutes a day you'd need, and the earliest exam date that leaves a week spare.
+  - It includes a chart and a "how this is worked out" table.
+  - It saves one forecast a day, so you can see the trend.
+  - A one-line version shows on Map and Ranks.
+- **Mistakes stick before they count as fixed.** A mistake counts as fixed only after 2 correct answers on **different days**.
+- **Read-aloud.** The voice (and Lily) skips emoji and symbols, pauses between list items and table cells, and reads m², 5–14 and /unit as words.
+
 ## 📕 Book practice (every study-guide question)
 - **All 391 questions from the study guide** are in the app, reworded and sorted into 82 sets in book order. That covers every *Before you begin* question, every in-module *Question*, every *Quick revision* question and every end-of-book *Revision* question. Open questions were turned into multiple choice, and the book's figures, answers and errata were kept.
 - **Order to use them in:**
