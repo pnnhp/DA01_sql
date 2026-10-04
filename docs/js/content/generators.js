@@ -498,3 +498,14 @@ export function varianceScenario() {
     mk('FOH volume variance', (units - bud) * foh, '4.6', `(${fmt(units)} − ${fmt(bud)}) × ${$(foh)}.`),
   ] };
 }
+
+// Which lesson teaches each generator (games only use generators from lessons you've studied).
+export const GEN_LESSON = {
+  highlow_vc: 'm2-4', highlow_fixed: 'm2-4', highlow_forecast: 'm2-4', rel_material: 'm2-2', deprival: 'm2-2', rel_labour: 'm6-1',
+  oar: 'm3-4', under_over: 'm3-4', apportion: 'm3-3', mc_ac_diff: 'm3-6', mc_profit: 'm3-5', abc_unit: 'm3-7', eu: 'm3-11', process_loss: 'm3-10', process_input: 'm3-10', job_price: 'm3-9',
+  prod_budget: 'm4-2', purch_budget: 'm4-2', cash_receipts: 'm4-3', flex: 'm4-4', mat_price: 'm4-8', mat_usage: 'm4-8', lab_rate: 'm4-9', lab_eff: 'm4-9', idle: 'm4-9', voh: 'm4-9',
+  foh_exp: 'm4-10', foh_vol: 'm4-10', sales_price: 'm4-11', sales_vol: 'm4-11', investigate: 'm4-12',
+  roi: 'm5-3', ri: 'm5-3', margin: 'm5-2', ratios: 'm5-2',
+  bep_units: 'm6-4', bep_rev: 'm6-4', cs_price: 'm6-4', target_profit: 'm6-5', mos: 'm6-5', limiting: 'm6-2', special_order: 'm6-1', make_buy: 'm6-3', payback: 'm6-6', arr: 'm6-7',
+  reorder: 'm7-2', maxlevel: 'm7-2', minlevel: 'm7-2', eoq: 'm7-3', avg_inv: 'm7-3', markup: 'm7-4', ped: 'm7-5', target_cost: 'm7-5',
+};
