@@ -1,5 +1,6 @@
-// Fix-it Reels: a TikTok-style vertical feed built from the lessons behind the questions you keep missing,
-// followed by a short re-test to check whether the mistake is fixed.
+// Fix-it Reels: a TikTok-style vertical feed where Lily (the cartoon narrator) talks you through
+// the questions you keep missing, using the lesson behind each one, with animated illustrations.
+// Then a short re-test checks whether the mistake is fixed.
 import * as store from '../core/store.js';
 import { sfx, unlock } from '../core/audio.js';
 import { esc, LETTERS } from '../core/engine.js';
@@ -7,13 +8,19 @@ import { retestFor } from '../core/questions.js';
 import { lessonById } from '../lessons/index.js';
 import { MODULES } from '../content/syllabus.js';
 import { speak, speakable, hush } from '../core/speech.js';
+import { createLily } from './lily.js';
+import { pickEmoji, emojiHTML, playEmoji, stopEmoji } from './emoji.js';
 
 const MAX_TOPICS = 3;
 const STOP = new Set('which what when where that this with from have their there about would should could does into than then them they your more most only also over such each because these those being after before under other same very much many will been were make made used uses using'.split(' '));
 const words = s => (String(s).toLowerCase().replace(/<[^>]+>/g, ' ').match(/[a-z][a-z\-]{3,}/g) || []).filter(w => !STOP.has(w));
-const plain = html => { const d = document.createElement('div'); d.innerHTML = html; return d.textContent; };
+const plain = html => { const d = document.createElement('div'); d.innerHTML = html; return d.textContent.replace(/\s+/g, ' ').trim(); };
 const modOf = L => MODULES.find(m => m.id === L.mod) || { color: '#ffd23f', short: 'Start', name: 'Start' };
 const tag = L => '#' + (L.title.split(/[^A-Za-z]+/).filter(w => w.length > 3)[0] || 'cpa').toLowerCase();
+// keep Lily's lines short and chatty: first sentence or two, max ~200 chars
+const short = (t, max = 200) => { t = t.replace(/\s+/g, ' ').trim(); if (t.length <= max) return t; const cut = t.slice(0, max); const k = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? ')); return (k > 60 ? cut.slice(0, k + 1) : cut.replace(/\s+\S*$/, '') + '…'); };
+const sentences = t => (t.replace(/\s+/g, ' ').match(/[^.!?]+[.!?]+["')]*|[^.!?]+$/g) || [t]).map(x => x.trim()).filter(Boolean);
+const pick = a => a[Math.floor(Math.random() * a.length)];
 
 // Which topics to cover: the requested lessons (or your worst topics), each with the mistakes you made there.
 function pickTopics(lessons) {
@@ -35,27 +42,72 @@ function bestSlides(L, items, n = 3) {
   return top.sort((a, b) => a.i - b.i).map(x => x.s);
 }
 
+
+// ── Scripts: each reel = a board (blocks revealed step by step) + Lily's lines.
+// line: { t: what Lily says, mood, g: gesture, show: board step to reveal when the line starts }
+function teachReel(base, s) {
+  const d = document.createElement('div'); d.innerHTML = s.b;
+  const pic = [...d.querySelectorAll('.pic')].map(p => { const t = p.textContent; p.remove(); return t; }).join(' ');
+  const blocks = [];
+  for (const el of [...d.children]) {
+    if (el.matches('ul, ol')) { const tagN = el.tagName.toLowerCase(); for (const li of el.children) blocks.push({ html: `<${tagN} class="bl-list"><li>${li.innerHTML}</li></${tagN}>`, text: li.textContent }); }
+    else if (el.matches('table')) { const rows = [...el.querySelectorAll('tr')]; const head = rows[0]; blocks.push({ html: `<table class="t">${head.outerHTML}</table>`, text: '' }); rows.slice(1).forEach(r => blocks.push({ html: `<table class="t">${r.outerHTML}</table>`, text: [...r.children].map(c => c.textContent).join(', ') })); }
+    else if (el.querySelector('ol.reveal')) { // worked example: intro first, then each step as Lily explains it
+      const ol = el.querySelector('ol.reveal'), steps = [...ol.children]; ol.remove();
+      const cls = el.className || 'eg';
+      if (el.textContent.trim()) blocks.push({ html: `<div class="${cls}">${el.innerHTML}</div>`, text: el.textContent });
+      steps.forEach((li, k) => blocks.push({ html: `<div class="${cls} egstep"><b>Step ${k + 1}</b> ${li.innerHTML}</div>`, text: `Step ${k + 1}. ${li.textContent}` }));
+    }
+    else blocks.push({ html: el.outerHTML, text: el.textContent, say: el.classList.contains('say'), trap: el.classList.contains('trap') });
+  }
+  if (!blocks.length && d.textContent.trim()) blocks.push({ html: `<p>${d.innerHTML}</p>`, text: d.textContent });
+  const lines = [{ t: pick(['Okay, look at this!', 'Let me explain!', 'Here\'s the trick!', 'This part is important!']) + ' ' + plain(s.h) + '.', mood: 'happy', g: 'point' }];
+  blocks.forEach((b, k) => {
+    const txt = short(b.text || '', 210);
+    lines.push({ t: txt || '', show: k, mood: b.trap ? 'surprised' : b.say ? 'wink' : (k % 3 === 2 ? 'think' : 'happy'), g: b.trap ? 'shake' : (k % 2 ? 'nod' : 'point'), quiet: !txt });
+  });
+  return { ...base, kind: 'teach', title: s.h, emoji: pickEmoji(plain(s.h + ' ' + s.b), 3, pic), blocks: blocks.map(b => b.html), lines };
+}
+
+function mistakeReel(base, it) {
+  const blocks = [];
+  if (it.intro) blocks.push(`<details class="scen"><summary>📄 Scenario</summary><div>${it.intro}</div></details>`);
+  const qStep = blocks.push(`<div class="rq">${esc(it.q)}</div>`) - 1;
+  const pStep = it.picked ? blocks.push(`<div class="rp">You picked: <s>${esc(it.picked)}</s> ❌</div>`) - 1 : -1;
+  const aStep = blocks.push(`<div class="ra">✅ ${esc(it.ans)}</div>`) - 1;
+  const xStep = it.ex ? blocks.push(`<div class="rx">💡 ${esc(it.ex)}</div>`) - 1 : -1;
+  const lines = [
+    { t: `Oops! You've missed this one ${it.wrong === 1 ? 'once' : it.wrong + ' times'}. No worries, let's fix it!`, mood: 'surprised', g: 'jump', show: it.intro ? 0 : undefined },
+    { t: short(it.q, 220), show: qStep, mood: 'think', g: 'point' },
+  ];
+  if (pStep >= 0) lines.push({ t: `You picked "${short(it.picked, 90)}". That's a really common trap!`, show: pStep, mood: 'oops', g: 'shake' });
+  lines.push({ t: `The right answer is: ${short(it.ans, 120)}!`, show: aStep, mood: 'proud', g: 'jump' });
+  if (xStep >= 0) sentences(it.ex).slice(0, 3).forEach((x, k) => lines.push({ t: x, show: k ? undefined : xStep, mood: k % 2 ? 'wink' : 'happy', g: 'nod' }));
+  lines.push({ t: pick(['Swipe up and I\'ll show you why!', 'Keep swiping, the lesson bit is next!', 'Now let\'s see where this comes from. Swipe up!']), mood: 'wink', g: 'point' });
+  return { ...base, kind: 'mistake', title: `You missed this ×${it.wrong}`, emoji: pickEmoji(`${it.q} ${it.ans}`, 2, '😮'), blocks, lines };
+}
+
 function buildReels(topics) {
   const reels = [];
   const total = topics.reduce((a, t) => a + t.items.length, 0);
-  reels.push({ kind: 'intro', color: '#ff3f7a', emoji: '🎬', title: 'Fix-it Reels',
-    html: `<p class="big">${total ? `You've missed <b>${total}</b> thing${total > 1 ? 's' : ''} more than you'd like.` : 'Quick refresher time.'}</p>
-      <ul>${topics.map(t => `<li>📌 ${esc(lessonById(t.lesson).title)}${t.items.length ? ` <i>(${t.items.length} to fix)</i>` : ''}</li>`).join('')}</ul>
-      <p>Watch, then take a quick re-test. 👆 Swipe up to start.</p>`,
-    say: `Fix it reels. ${topics.length} topic${topics.length > 1 ? 's' : ''} to fix. Watch these, then take a quick re-test. Swipe up to start.` });
+  const names = topics.map(t => lessonById(t.lesson).title);
+  reels.push({ kind: 'intro', color: '#ff3f7a', title: 'Fix-it Reels with Lily', emoji: ['🍋', '👋', '✨'],
+    blocks: [`<p class="big">${total ? `<b>${total}</b> thing${total > 1 ? 's' : ''} to fix` : 'Quick refresher'}</p>`, `<ul class="bl-list">${names.map(n => `<li>📌 ${esc(n)}</li>`).join('')}</ul>`, '<p>Watch, then a quick re-test. 👆 Swipe up!</p>'],
+    lines: [
+      { t: 'Hi! It\'s me, Lily! 👋', mood: 'proud', g: 'jump' },
+      { t: total ? `I've noticed you keep tripping on ${total === 1 ? 'one thing' : total + ' things'}. That's totally okay, it happens to everyone!` : 'Let\'s do a quick refresher together!', mood: 'happy', g: 'nod', show: 0 },
+      { t: `We'll look at: ${names.join(', ')}.`, mood: 'think', g: 'point', show: 1 },
+      { t: 'Watch these short clips, then do a quick re-test to see if it sticks. Swipe up when you\'re ready!', mood: 'wink', g: 'point', show: 2 },
+    ] });
   for (const t of topics) {
     const L = lessonById(t.lesson), m = modOf(L);
     const base = { color: m.color, mod: m.short, L };
-    for (const it of [...t.items].sort((a, b) => b.wrong - a.wrong).slice(0, 2)) {
-      reels.push({ ...base, kind: 'mistake', emoji: '😬', title: `You missed this ×${it.wrong}`,
-        html: `${it.intro ? `<details class="scen"><summary>📄 Scenario</summary><div>${it.intro}</div></details>` : ''}<div class="rq">${esc(it.q)}</div>${it.picked ? `<div class="rp st">You picked: <s>${esc(it.picked)}</s> ❌</div>` : ''}
-          <div class="ra st">✅ ${esc(it.ans)}</div>${it.ex ? `<div class="rx st">💡 ${esc(it.ex)}</div>` : ''}`,
-        say: `You missed this ${it.wrong} time${it.wrong > 1 ? 's' : ''}. ${it.q}. ${it.picked ? `You picked ${it.picked}. ` : ''}The answer is: ${it.ans}. ${it.ex}` });
-    }
-    for (const s of bestSlides(L, t.items)) reels.push({ ...base, kind: 'teach', emoji: '', title: s.h, html: s.b, say: `${s.h}. ${plain(s.b)}` });
+    for (const it of [...t.items].sort((a, b) => b.wrong - a.wrong).slice(0, 2)) reels.push(mistakeReel(base, it));
+    for (const s of bestSlides(L, t.items)) reels.push(teachReel(base, s));
   }
-  reels.push({ kind: 'end', color: '#3fff8b', emoji: '🎯', title: 'Did it stick?', html: `<p class="big">Time for a quick re-test on exactly what you missed (calculations come back with new numbers).</p><button class="btn big" data-retest>Start re-test ▶</button>`,
-    say: 'Did it stick? Time for a quick re-test on exactly what you missed.' });
+  reels.push({ kind: 'end', color: '#3fff8b', title: 'Did it stick?', emoji: ['🎯', '💪', '🏆'],
+    blocks: ['<p class="big">Quick re-test on exactly what you missed. Calculations come back with new numbers!</p>'], cta: '<button class="btn big" data-retest>Start re-test ▶</button>',
+    lines: [{ t: 'You did it! That\'s all the clips.', mood: 'proud', g: 'jump', show: 0 }, { t: 'Now let\'s see if it stuck. Tap start re-test. I believe in you!', mood: 'wink', g: 'point' }] });
   return reels;
 }
 
@@ -64,7 +116,7 @@ export function playReels(app, opts = {}) {
   const root = app.el;
   document.body.classList.add('ingame');
   if (!topics.length) {
-    root.innerHTML = `<div class="reels-empty panel"><div class="pic">🌟</div><h2>Nothing to fix right now!</h2><p>Play some games or lessons. Anything you get wrong will be remembered and turned into Fix-it Reels.</p><button class="btn big" id="rx">Back</button></div>`;
+    root.innerHTML = `<div class="reels-empty panel"><div class="pic">🌟</div><h2>Nothing to fix right now!</h2><p>Play some games or lessons. Anything you get wrong will be remembered and turned into Fix-it Reels with Lily.</p><button class="btn big" id="rx">Back</button></div>`;
     root.querySelector('#rx').onclick = () => app.go('fix'); return;
   }
   const s = store.state();
@@ -74,52 +126,72 @@ export function playReels(app, opts = {}) {
   root.innerHTML = `<div class="reels">
     <div class="reel-top"><button class="lz-x" id="rclose" aria-label="Close">✕</button><b>Fix-it Reels</b><span class="rcount">1/${reels.length}</span></div>
     <div class="reel-feed">${reels.map((r, i) => `<section class="reel ${r.kind}" data-i="${i}" style="--mc:${r.color}">
-      <div class="reel-bg"><span>${r.L ? (r.kind === 'mistake' ? '❓' : '💡') : r.emoji}</span><span>${r.emoji || '📚'}</span><span>✨</span></div>
       <div class="reel-bar"><i></i></div>
-      <div class="reel-body">${r.emoji ? `<div class="reel-emoji">${r.emoji}</div>` : ''}<h2 class="st">${r.title}</h2><div class="reel-content">${r.html}</div></div>
+      <div class="board">
+        <div class="board-emo">${r.emoji.map((e, k) => emojiHTML(e, 'e' + k)).join('')}</div>
+        <h2>${r.title}</h2>
+        <div class="reel-content">${r.blocks.map((b, k) => `<div class="st" data-step="${k}">${b}</div>`).join('')}</div>${r.cta || ''}
+      </div>
+      <div class="rstage"><div class="lily-slot"></div><div class="bubble"><span></span></div></div>
       <div class="reel-rail"><button data-like title="Got it">❤️<i>${likes}</i></button><button data-replay title="Replay">🔁</button><button data-voice title="Voice">${voiceOn ? '🔊' : '🔇'}</button><button data-auto title="Auto-scroll">${auto ? '⏩' : '⏸'}</button>${r.L ? `<button data-lesson="${r.L.id}" title="Full lesson">📖</button>` : ''}</div>
-      <div class="reel-cap">${r.L ? `<b>@lily.juice.co</b> · ${esc(r.mod)}<br><span>${esc(r.L.title)} #cpa ${tag(r.L)} #fixit</span>` : '<b>@costcommando</b><br><span>#cpa #managementaccounting</span>'}<br><i>🎵 original sound · Cost Commando</i></div>
+      <div class="reel-cap">${r.L ? `<b>@lily.juice.co</b> · ${esc(r.mod)} · ${esc(r.L.title)} #cpa ${tag(r.L)}` : '<b>@lily.juice.co</b> · #cpa #fixit'} · 🎵 original sound</div>
       ${i < reels.length - 1 ? '<div class="reel-hint">👆 swipe up</div>' : ''}
     </section>`).join('')}</div></div>`;
   const feed = root.querySelector('.reel-feed'), els = [...root.querySelectorAll('.reel')];
-  // stage every block so it pops in one after another
-  els.forEach(el => {
-    const blocks = [...el.querySelectorAll('.reel-content > *:not(ol):not(ul):not(table), .reel-content li, .reel-content tr')];
-    blocks.forEach((b, k) => { b.classList.add('st'); b.style.setProperty('--d', (0.5 + k * 0.9).toFixed(2) + 's'); });
-  });
-  let cur = -1, timer = null, paused = false;
-  const stop = () => { clearTimeout(timer); hush(); };
-  const close = () => { stop(); obs.disconnect(); app.go('fix'); };
+  const lily = createLily('lg');
+  let cur = -1, timer = null, paused = false, gen = 0, li = 0;
+  const bubble = () => els[cur] && els[cur].querySelector('.bubble span');
+  const stop = () => { gen++; clearTimeout(timer); hush(); lily.talk(false); };
+  const close = () => { stop(); obs.disconnect(); lily.destroy(); els.forEach(stopEmoji); app.go('fix'); };
   const go = i => { if (i >= 0 && i < els.length) els[i].scrollIntoView({ behavior: 'smooth' }); };
+  const reveal = (el, k) => { const b = el.querySelector(`[data-step="${k}"]`); if (b && !b.classList.contains('on')) { b.classList.add('on'); sfx('tick'); const c = el.querySelector('.reel-content'); const top = b.offsetTop - c.offsetTop; if (top + b.offsetHeight > c.scrollTop + c.clientHeight) c.scrollTo({ top: Math.max(0, top - 20), behavior: 'smooth' }); } };
+  // say line k of the current reel, then the next
+  const sayLine = (i, k) => {
+    const my = ++gen; li = k;
+    const el = els[i], r = reels[i], bar = el.querySelector('.reel-bar i');
+    bar.style.width = Math.round(k / r.lines.length * 100) + '%';
+    if (k >= r.lines.length) { lily.talk(false).mood('happy'); bar.style.width = '100%'; if (auto && i < els.length - 1) timer = setTimeout(() => { if (my === gen && !paused) go(i + 1); }, 1400); return; }
+    const L = r.lines[k];
+    if (L.show !== undefined) reveal(el, L.show);
+    const done = () => { if (my !== gen) return; gen++; lily.talk(false); timer = setTimeout(() => { if (!paused) sayLine(i, k + 1); }, 350); };
+    if (L.quiet || !L.t) { timer = setTimeout(done, 1600); return; }
+    lily.mood(L.mood || 'happy').gesture(L.g); lily.talk(true);
+    const sp = bubble(); if (sp) { sp.textContent = L.t; sp.parentElement.classList.remove('pop'); void sp.offsetWidth; sp.parentElement.classList.add('pop'); }
+    const text = speakable(L.t);
+    const est = Math.max(1500, text.length * 62);
+    if (voiceOn) { speak(text, done, true, () => { if (my === gen) lily.word(); }); timer = setTimeout(done, est + 4000); }
+    else timer = setTimeout(done, est);
+  };
   const play = i => {
     stop(); cur = i; paused = false;
     root.querySelector('.rcount').textContent = `${i + 1}/${els.length}`;
-    els.forEach((e, k) => e.classList.toggle('play', k === i));
-    const el = els[i], r = reels[i], bar = el.querySelector('.reel-bar i');
-    const text = speakable(r.say), dur = Math.max(6, Math.min(40, text.split(/\s+/).length * 0.4));
-    bar.style.transition = 'none'; bar.style.width = '0'; void bar.offsetWidth; bar.style.transition = `width ${dur}s linear`; bar.style.width = '100%';
-    let doneSpeech = !voiceOn, doneTime = false;
-    const next = () => { if (doneSpeech && doneTime && auto && cur === i && !paused && i < els.length - 1) go(i + 1); };
-    timer = setTimeout(() => { doneTime = true; next(); }, dur * 1000);
-    if (voiceOn) speak(text, () => { doneSpeech = true; setTimeout(next, 900); }, true);
+    els.forEach((e, k) => { e.classList.toggle('play', k === i); e.classList.remove('paused'); if (Math.abs(k - i) > 1) stopEmoji(e); });
+    const el = els[i];
+    el.querySelectorAll('.st').forEach(b => b.classList.remove('on'));
+    el.querySelector('.reel-content').scrollTop = 0;
+    el.querySelector('.lily-slot').appendChild(lily.el);
+    playEmoji(el); if (els[i + 1]) playEmoji(els[i + 1]);
+    sayLine(i, 0);
   };
   const obs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && e.intersectionRatio > 0.6) { const i = +e.target.dataset.i; if (i !== cur) play(i); } }), { root: feed, threshold: [0.6] });
   els.forEach(e => obs.observe(e));
   root.querySelector('#rclose').onclick = close;
   feed.addEventListener('click', e => {
     const b = e.target.closest('button');
+    if (e.target.closest('details')) return;
     if (!b) { // tap the video to pause / resume
-      paused = !paused; const el = els[cur]; if (!el) return;
-      el.classList.toggle('paused', paused); if (paused) { clearTimeout(timer); hush(); } else play(cur);
+      const el = els[cur]; if (!el) return;
+      paused = !paused; el.classList.toggle('paused', paused);
+      if (paused) { gen++; clearTimeout(timer); hush(); lily.talk(false).mood('think'); } else sayLine(cur, li);
       return;
     }
     unlock();
-    if (b.dataset.retest !== undefined) { stop(); obs.disconnect(); return retest(app, topics); }
-    if (b.dataset.like !== undefined) { likes++; sfx('coin'); b.classList.add('liked'); root.querySelectorAll('[data-like] i').forEach(x => x.textContent = likes); return; }
+    if (b.dataset.retest !== undefined) { stop(); obs.disconnect(); lily.destroy(); return retest(app, topics); }
+    if (b.dataset.like !== undefined) { likes++; sfx('coin'); b.classList.add('liked'); lily.mood('proud').gesture('jump'); root.querySelectorAll('[data-like] i').forEach(x => x.textContent = likes); return; }
     if (b.dataset.replay !== undefined) return play(cur);
     if (b.dataset.voice !== undefined) { voiceOn = !voiceOn; s.settings.reelVoice = voiceOn; store.save(); root.querySelectorAll('[data-voice]').forEach(x => x.textContent = voiceOn ? '🔊' : '🔇'); return play(cur); }
     if (b.dataset.auto !== undefined) { auto = !auto; s.settings.reelAuto = auto; store.save(); root.querySelectorAll('[data-auto]').forEach(x => x.textContent = auto ? '⏩' : '⏸'); return; }
-    if (b.dataset.lesson) { stop(); obs.disconnect(); return app.lesson(b.dataset.lesson); }
+    if (b.dataset.lesson) { stop(); obs.disconnect(); lily.destroy(); return app.lesson(b.dataset.lesson); }
   });
   document.addEventListener('keydown', function key(e) {
     if (!document.body.contains(feed)) return document.removeEventListener('keydown', key);

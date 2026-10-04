@@ -275,6 +275,10 @@ function viewSettings() {
     <div class="row"><button class="btn" id="exp">Copy my save code</button><button class="btn ghost" id="imp">Paste a save code</button></div>
     <textarea id="code" rows="3" placeholder="Save code appears / paste here"></textarea></section>
   <section class="panel danger"><button class="btn ghost" id="rst">Reset all progress</button></section>
+  <section class="panel credits"><h2>🙏 Credits (open source)</h2><ul class="muted small">
+    <li>Lily is built from <b>ToonHead</b> by Johan Melin (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>), rendered with <a href="https://www.dicebear.com" target="_blank" rel="noopener">DiceBear</a> (MIT).</li>
+    <li>Animated illustrations: <b>Noto Animated Emoji</b> by Google (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>), played with <b>lottie-web</b> (MIT).</li>
+    <li>Online play: <b>PeerJS</b> (MIT).</li></ul></section>
   <p class="muted small center">Content written from the CPA Australia Management Accounting learning objectives (7th edn study guide, errata applied). Not affiliated with CPA Australia.</p>`;
 }
 

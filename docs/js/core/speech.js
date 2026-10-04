@@ -13,10 +13,11 @@ function pickVoice() {
   return vs.find(v => /en-AU/i.test(v.lang)) || vs.find(v => /en-GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
 }
 if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => { voice = pickVoice(); };
-export function speak(text, onend, quietFail = false) {
+export function speak(text, onend, quietFail = false, onword = null) {
   if (!('speechSynthesis' in window)) { if (!quietFail) alert('Sorry, this browser can\'t read aloud.'); if (onend) setTimeout(onend, 2500); return; }
   speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); voice = voice || pickVoice(); if (voice) u.voice = voice;
-  u.rate = 0.95; u.pitch = 1.05; u.onend = onend; speechSynthesis.speak(u);
+  u.rate = 0.95; u.pitch = 1.1; u.onend = onend; u.onerror = () => onend && onend(); if (onword) u.onboundary = e => { if (e.name !== 'sentence') onword(e); };
+  speechSynthesis.speak(u);
 }
 export const hush = () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); };
 
