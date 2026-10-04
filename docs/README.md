@@ -29,6 +29,15 @@ Every question in the app belongs to the lesson that teaches it: the 260 concept
 - **Final Boss:** the mock exam always uses the whole syllabus, like the real exam.
 - **Checking it:** `node tools/check_coverage.mjs` confirms that every question maps to a lesson and that each correct answer's key words appear in that lesson's slides.
 
+## 📕 Book practice (every study-guide question)
+- **All 391 questions from the study guide** are in the app, reworded and sorted into 82 sets in book order. That covers every *Before you begin* question, every in-module *Question*, every *Quick revision* question and every end-of-book *Revision* question. Open questions were turned into multiple choice, and the book's figures, answers and errata were kept.
+- **Order to use them in:**
+  - 🌱 Before you begin = warm-up.
+  - ❓ In-module questions and ⚡ Quick revision unlock once you've done the lessons they use.
+  - 🏁 Revision questions = end-of-module exam practice.
+- **Where to find them:** the **Learn** tab, each module screen, and *Book questions on this lesson* at the end of every lesson. The home screen suggests your next set.
+- **They also appear elsewhere:** in games (short ones only), in the Final Boss mock exam (scenario questions included) and in Fix-it. Every mistake is remembered there.
+
 ## 🎬 Fix-it Reels (mistake memory)
 - **The app remembers your mistakes.** Every question you get wrong in a game, lesson check or mock exam is saved on your device, along with how many times you missed it and what you picked.
 - **Short videos for your weak spots.** The **Fix** tab turns your worst topics into a TikTok-style feed: swipe-up reels with animated captions and an optional voice-over.
